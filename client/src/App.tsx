@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { Sidebar } from './components/Sidebar';
@@ -14,8 +14,8 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
-    // basename 속성에 "/hr" 지정: 도메인.com/hr 하위 디렉토리 라우팅 기능 통합
-    <BrowserRouter basename="/hr">
+    // 앱이 Root(/)에서 구동되도록 basename을 제거(또는 "/")합니다.
+    <BrowserRouter>
       <div className="flex h-screen bg-gray-50 overflow-hidden relative">
         
         {/* 1. 모바일 햄버거 메뉴 (헤더 탑-바) : md 미만 화면에서만 노출 및 인쇄(Print)시 숨김 */}

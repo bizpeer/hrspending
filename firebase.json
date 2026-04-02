@@ -8,7 +8,7 @@
     ],
     "rewrites": [
       {
-        "source": "/hr/**",
+        "source": "**",
         "destination": "/index.html"
       }
     ]

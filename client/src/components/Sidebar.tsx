@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, CalendarClock, Shield, Network, Settings, FileText, CheckSquare, PieChart, BookOpen } from 'lucide-react';
+import { Home, CalendarClock, Network, Settings, FileText, CheckSquare, PieChart, BookOpen } from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
 
 interface SidebarProps {
