@@ -4,3 +4,9 @@ dist
 .DS_Store
 build
 .firebase
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
