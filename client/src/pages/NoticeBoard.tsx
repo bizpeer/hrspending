@@ -31,13 +31,13 @@ const MOCK_NOTICES: Notice[] = [
 ];
 
 interface NoticeBoardProps {
-  userRole: 'WORKER' | 'HR_ADMIN' | 'FINANCE' | 'FINANCE_DIRECTOR' | 'DIRECTOR';
+  userRole: 'ADMIN' | 'SUB_ADMIN' | 'EMPLOYEE' | string;
   currentUserId: string;
 }
 
 export const NoticeBoard: React.FC<NoticeBoardProps> = ({ userRole, currentUserId }) => {
   const [expandedNoticeId, setExpandedNoticeId] = useState<string | null>(null);
-  const isAdmin = userRole === 'HR_ADMIN' || userRole === 'DIRECTOR';
+  const isAdmin = userRole === 'ADMIN' || userRole === 'SUB_ADMIN';
 
   const handleNoticeClick = (noticeId: string) => {
     // 세부 내용 토글

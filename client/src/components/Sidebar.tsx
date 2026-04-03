@@ -4,14 +4,14 @@ import { Home, CalendarClock, Network, Settings, FileText, CheckSquare, PieChart
 import { NotificationBell } from './NotificationBell';
 
 interface SidebarProps {
-  userRole: 'WORKER' | 'HR_ADMIN' | 'FINANCE' | 'FINANCE_DIRECTOR' | 'DIRECTOR';
+  userRole: 'ADMIN' | 'SUB_ADMIN' | 'EMPLOYEE' | string;
   userId?: string;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ userRole, userId = 'uid1' }) => {
-  const isHR = userRole === 'HR_ADMIN' || userRole === 'DIRECTOR';
-  const isFinance = userRole === 'FINANCE' || userRole === 'FINANCE_DIRECTOR' || userRole === 'DIRECTOR';
-  const isDirector = userRole === 'DIRECTOR';
+  const isHR = userRole === 'ADMIN' || userRole === 'SUB_ADMIN';
+  const isFinance = userRole === 'ADMIN' || userRole === 'SUB_ADMIN';
+  const isDirector = userRole === 'ADMIN';
   const isManagement = isHR || isFinance || isDirector;
 
   return (
