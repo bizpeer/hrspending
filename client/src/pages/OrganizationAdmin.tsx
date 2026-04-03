@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PlusCircle, Search, Users, ShieldAlert, UserPlus, ArrowRightLeft } from 'lucide-react';
+import { PlusCircle, Users, ShieldAlert, UserPlus, ArrowRightLeft } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
 interface Division {
