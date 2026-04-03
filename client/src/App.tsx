@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Menu, X } from 'lucide-react';
 import { Sidebar } from './components/Sidebar';
 import { OrganizationAdmin } from './pages/OrganizationAdmin';
@@ -14,8 +14,8 @@ function App() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
-    // 앱이 Root(/)에서 구동되도록 basename을 제거(또는 "/")합니다.
-    <BrowserRouter>
+    // Github Pages 환경의 404 에러 방지를 위해 HashRouter를 사용합니다.
+    <HashRouter>
       <div className="flex h-screen bg-gray-50 overflow-hidden relative">
         
         {/* 1. 모바일 햄버거 메뉴 (헤더 탑-바) : md 미만 화면에서만 노출 및 인쇄(Print)시 숨김 */}
@@ -60,7 +60,7 @@ function App() {
           </Routes>
         </div>
       </div>
-    </BrowserRouter>
+    </HashRouter>
   );
 }
 
