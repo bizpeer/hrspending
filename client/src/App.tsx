@@ -8,6 +8,7 @@ import { ExpenseForm } from './pages/ExpenseForm';
 import { AttendanceDashboard } from './pages/AttendanceDashboard';
 import { NoticeBoard } from './pages/NoticeBoard';
 import { Login } from './pages/Login';
+import { AdminSettings } from './pages/AdminSettings';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { useAuthStore } from './store/authStore';
 
@@ -78,6 +79,11 @@ function App() {
                   <Route path="/admin/finance-stats" element={
                     <ProtectedRoute requireAdmin>
                       <ExpenseAdminDashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/admin/settings" element={
+                    <ProtectedRoute requireAdmin>
+                      <AdminSettings />
                     </ProtectedRoute>
                   } />
                   

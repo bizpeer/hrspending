@@ -20,11 +20,17 @@ export const Login: React.FC = () => {
     setError('');
     setLoading(true);
 
+    // bizpeer 아이디를 내부 이메일 형식으로 변환
+    let loginEmail = email;
+    if (email === 'bizpeer') {
+      loginEmail = 'bizpeer@internal.com';
+    }
+
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, loginEmail, password);
       navigate(from, { replace: true });
     } catch (err: any) {
-      setError('이메일 혹은 비밀번호가 틀렸거나 문제가 발생했습니다.');
+      setError('아이디(이메일) 혹은 비밀번호가 틀렸거나 문제가 발생했습니다.');
       console.error(err);
     } finally {
       setLoading(false);
@@ -33,8 +39,9 @@ export const Login: React.FC = () => {
 
   // 마스터 어드민 시딩 (최초 1회용 자동생성)
   const handleSeedMasterAdmin = async () => {
-    const adminEmail = "admin@hrflow.com";
-    const adminPassword = "password123!";
+    const adminId = "bizpeer";
+    const adminEmail = "bizpeer@internal.com";
+    const adminPassword = "1234";
 
     try {
       setLoading(true);
@@ -48,7 +55,7 @@ export const Login: React.FC = () => {
         role: 'ADMIN',
         teamHistory: []
       });
-      alert(`초기 마스터 관리자 계정이 생성되었습니다.\nID: ${adminEmail}\nPW: ${adminPassword}`);
+      alert(`초기 마스터 관리자 계정이 생성되었습니다.\nID: ${adminId}\nPW: ${adminPassword}`);
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
         alert("이미 관리자 계정이 생성되어 있습니다.");
@@ -77,12 +84,12 @@ export const Login: React.FC = () => {
           )}
           <div className="rounded-md shadow-sm space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700">이메일</label>
+              <label className="block text-sm font-medium text-gray-700">아이디 또는 이메일</label>
               <input
-                type="email"
+                type="text"
                 required
                 className="appearance-none rounded relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm mt-1"
-                placeholder="email@company.com"
+                placeholder="bizpeer 또는 email@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />

@@ -93,12 +93,23 @@ export const Sidebar: React.FC<SidebarProps> = ({ userRole, userId = 'uid1' }) =
             <span>지출결의 통합 조회</span>
           </NavLink>
         )}
+
+        {/* 시스템 설정 (최고 관리자 전용) */}
+        {isDirector && (
+          <NavLink 
+            to="/admin/settings" 
+            className={({ isActive }) => `flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${isActive ? 'bg-indigo-600 text-white' : 'hover:bg-gray-800 text-gray-300'}`}
+          >
+            <Settings className="w-5 h-5" />
+            <span>시스템 설정</span>
+          </NavLink>
+        )}
       </nav>
 
       <div className="mt-auto pt-4 border-t border-gray-800">
         <button className="flex w-full items-center space-x-3 px-3 py-2 text-gray-400 hover:text-white transition-colors">
-          <Settings className="w-5 h-5" />
-          <span>내 설정</span>
+          <Home className="w-5 h-5" />
+          <span>홈으로</span>
         </button>
       </div>
     </div>
