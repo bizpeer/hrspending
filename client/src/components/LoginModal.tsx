@@ -132,10 +132,10 @@ export const LoginModal: React.FC = () => {
             </p>
             <button 
               onClick={handleSeedMasterAdmin}
-              className="text-[10px] text-gray-200 hover:text-gray-400 flex items-center gap-1 transition-colors"
+              className="text-xs text-indigo-400 hover:text-indigo-600 flex items-center gap-1.5 px-2 py-1 hover:bg-indigo-50 rounded-lg transition-all font-medium"
               title="마스터 계정 초기화"
             >
-              <Settings className="w-3 h-3" />
+              <Settings className="w-4 h-4" />
               마스터 설정
             </button>
           </div>
