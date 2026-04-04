@@ -1,70 +1,36 @@
-import { Pool } from 'pg';
-import dotenv from 'dotenv';
+import { adminDb } from './firebaseAdmin';
 
-dotenv.config();
-
-// PostgreSQL DB 연결 셋업 (로컬 또는 외부 DB 정보)
-export const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'hr_management',
-  password: process.env.DB_PASSWORD || 'password',
-  port: parseInt(process.env.DB_PORT || '5432'),
-});
-
-pool.on('error', (err) => {
-  console.error('Unexpected error on idle client', err);
-  process.exit(-1);
-});
-
-// DB 초기화 스크립트 작성 (스키마 생성)
+/**
+ * Google Cloud Firestore 데이터베이스 초기화
+ * Firestore는 NoSQL로 테이블 생성이 필요 없으나, 초기 관리를 위한 설정을 수행합니다.
+ */
 export const initDB = async () => {
-  const client = await pool.connect();
   try {
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS Users (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        employee_id VARCHAR(50) UNIQUE NOT NULL,
-        password_hash VARCHAR(255) NOT NULL,
-        name VARCHAR(100) NOT NULL,
-        department VARCHAR(100) NOT NULL,
-        position VARCHAR(50) NOT NULL,
-        role VARCHAR(20) NOT NULL CHECK (role IN ('WORKER', 'HR_ADMIN', 'DIRECTOR')),
-        annual_leave_total INT DEFAULT 15,
-        annual_leave_used INT DEFAULT 0
-      );
-      
-      CREATE TABLE IF NOT EXISTS Attendance (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID REFERENCES Users(id),
-        work_date DATE NOT NULL,
-        check_in_time TIMESTAMP WITH TIME ZONE,
-        check_out_time TIMESTAMP WITH TIME ZONE,
-        status VARCHAR(20) DEFAULT 'MISSING',
-        ip_address VARCHAR(50)
-      );
-      
-      CREATE TABLE IF NOT EXISTS LeaveRequests (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id UUID REFERENCES Users(id),
-        leave_type VARCHAR(50) NOT NULL,
-        start_date DATE NOT NULL,
-        end_date DATE NOT NULL,
-        reason TEXT,
-        status VARCHAR(20) DEFAULT 'PENDING_HR',
-        reject_reason TEXT
-      );
-
-      CREATE TABLE IF NOT EXISTS Holidays (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        holiday_date DATE NOT NULL,
-        name VARCHAR(100) NOT NULL
-      );
-    `);
-    console.log('Database tables initialized successfully.');
+    // 초기 관리자(bizpeer) 문서가 존재하는지 확인하고 필요 시 생성
+    const adminRef = adminDb.collection('users').doc('bizpeer');
+    const docSnap = await adminRef.get();
+    
+    if (!docSnap.exists) {
+      await adminRef.set({
+        employee_id: 'bizpeer',
+        name: '최고 관리자',
+        department: '관리본부',
+        position: '대표이사',
+        role: 'DIRECTOR',
+        annual_leave_total: 15,
+        annual_leave_used: 0,
+        createdAt: new Date().toISOString()
+      });
+      console.log('Firebase Firestore: Initial admin (bizpeer) document seeded.');
+    } else {
+      console.log('Firebase Firestore: Database connected and ready.');
+    }
   } catch (error) {
-    console.error('Failed to initialize local DB tables:', error);
-  } finally {
-    client.release();
+    console.error('Firebase Firestore Initialization Error:', error);
+    // 에러 발생 시 (인증 오류 등) 에러를 로깅하고 사용자에게 키 파일 확인 권고
+    console.warn('Please ensure that the "serviceAccount.json" is placed in the server directory or GOOGLE_APPLICATION_CREDENTIALS env is set.');
   }
 };
+
+// 기존 PostgreSQL pool 대신 Firestore adminDb 인스턴스를 직접 사용하도록 내보냅니다.
+export const db = adminDb;

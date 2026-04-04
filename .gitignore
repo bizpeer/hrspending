@@ -4,3 +4,6 @@ dist
 .DS_Store
 build
 .firebase
+serviceAccount.json
+*.json.json
+server/serviceAccount.json
