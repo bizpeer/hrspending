@@ -1,0 +1,107 @@
+import React, { useState } from 'react';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../firebase';
+import { useAuthStore } from '../store/authStore';
+import { AlertCircle, X } from 'lucide-react';
+
+export const LoginModal: React.FC = () => {
+  const { isLoginModalOpen, setLoginModalOpen } = useAuthStore();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  if (!isLoginModalOpen) return null;
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+
+    // bizpeer 아이디를 내부 이메일 형식으로 변환
+    let loginEmail = email;
+    if (email === 'bizpeer') {
+      loginEmail = 'bizpeer@internal.com';
+    }
+
+    try {
+      await signInWithEmailAndPassword(auth, loginEmail, password);
+      setLoginModalOpen(false); // 로그인 성공 시 모달 닫기
+    } catch (err: any) {
+      setError('아이디(이메일) 혹은 비밀번호가 틀렸거나 문제가 발생했습니다.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden relative animate-in fade-in zoom-in duration-300">
+        <button 
+          onClick={() => setLoginModalOpen(false)}
+          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all"
+        >
+          <X className="w-5 h-5" />
+        </button>
+
+        <div className="p-8">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">
+              <span className="text-indigo-600">HR Flow</span> 로그인
+            </h2>
+            <p className="text-gray-500">계속하시려면 로그인해주세요</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-5">
+            {error && (
+              <div className="bg-red-50 text-red-700 p-4 rounded-xl flex items-center gap-3 text-sm font-medium border border-red-100">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                {error}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">아이디 또는 이메일</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                  placeholder="bizpeer 또는 email@company.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">비밀번호</label>
+                <input
+                  type="password"
+                  required
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                  placeholder="비밀번호 입력"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-lg shadow-indigo-200 disabled:opacity-50"
+            >
+              {loading ? '인증 중...' : '로그인'}
+            </button>
+          </form>
+          
+          <div className="mt-6 text-center">
+            <p className="text-xs text-gray-400">
+              최초 로그인 이후 비밀번호를 반드시 변경해 주세요.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};

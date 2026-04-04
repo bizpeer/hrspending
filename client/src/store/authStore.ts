@@ -26,15 +26,19 @@ interface AuthState {
   user: User | null;
   userData: UserData | null;
   loading: boolean;
+  isLoginModalOpen: boolean;
   initAuth: () => (() => void);
   setUserData: (userData: UserData | null) => void;
+  setLoginModalOpen: (isOpen: boolean) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   userData: null,
   loading: true,
+  isLoginModalOpen: false,
   setUserData: (userData) => set({ userData }),
+  setLoginModalOpen: (isOpen) => set({ isLoginModalOpen: isOpen }),
   initAuth: () => {
     
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {

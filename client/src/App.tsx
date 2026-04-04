@@ -8,8 +8,10 @@ import { ExpenseForm } from './pages/ExpenseForm';
 import { AttendanceDashboard } from './pages/AttendanceDashboard';
 import { NoticeBoard } from './pages/NoticeBoard';
 import { Login } from './pages/Login';
+import { Landing } from './pages/Landing';
 import { AdminSettings } from './pages/AdminSettings';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { LoginModal } from './components/LoginModal';
 import { useAuthStore } from './store/authStore';
 
 function App() {
@@ -30,8 +32,10 @@ function App() {
   // 로그인되지 않은 라우트는 별도로 처리
   return (
     <HashRouter>
+      <LoginModal />
       <Routes>
         {/* 공개 라우트 */}
+        <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
         
         {/* 보호된 라우트 래퍼 */}
@@ -90,8 +94,8 @@ function App() {
                   {/* 전사 공지/알림 게시판 */}
                   <Route path="/board" element={<NoticeBoard userRole={userData?.role || 'EMPLOYEE'} currentUserId={userData?.uid || ''} />} />
                   
-                  {/* 기본 경로 접속 시 대시보드로 리다이렉트 */}
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  {/* 기본 경로 접속 시 대시보드로 리다이렉트가 아닌 잘못된 경로 리다이렉트 처리 */}
+                  <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 </Routes>
               </div>
             </div>

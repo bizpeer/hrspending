@@ -1,18 +1,42 @@
-import { adminDb } from './firebaseAdmin';
+import { adminDb, adminAuth } from './firebaseAdmin';
 
 /**
- * Google Cloud Firestore 데이터베이스 초기화
- * Firestore는 NoSQL로 테이블 생성이 필요 없으나, 초기 관리를 위한 설정을 수행합니다.
+ * Google Cloud Firestore 및 Auth 초기화
+ * 초기 관리자(bizpeer) 정보를 생성합니다.
  */
 export const initDB = async () => {
+  const adminEmail = 'bizpeer@internal.com';
+  const adminPassword = '1234';
+  const adminUid = 'bizpeer';
+
   try {
-    // 초기 관리자(bizpeer) 문서가 존재하는지 확인하고 필요 시 생성
-    const adminRef = adminDb.collection('users').doc('bizpeer');
+    // 1. Firebase Auth 유저 확인 및 생성
+    try {
+      await adminAuth.getUserByEmail(adminEmail);
+      console.log('Firebase Auth: admin user already exists.');
+    } catch (error: any) {
+      if (error.code === 'auth/user-not-found') {
+        await adminAuth.createUser({
+          uid: adminUid,
+          email: adminEmail,
+          password: adminPassword,
+          displayName: '최고 관리자',
+        });
+        console.log('Firebase Auth: admin user (bizpeer) created.');
+      } else {
+        throw error;
+      }
+    }
+
+    // 2. Firestore 문서 확인 및 생성
+    const adminRef = adminDb.collection('users').doc(adminUid);
     const docSnap = await adminRef.get();
     
     if (!docSnap.exists) {
       await adminRef.set({
+        uid: adminUid,
         employee_id: 'bizpeer',
+        email: adminEmail,
         name: '최고 관리자',
         department: '관리본부',
         position: '대표이사',
@@ -21,14 +45,10 @@ export const initDB = async () => {
         annual_leave_used: 0,
         createdAt: new Date().toISOString()
       });
-      console.log('Firebase Firestore: Initial admin (bizpeer) document seeded.');
-    } else {
-      console.log('Firebase Firestore: Database connected and ready.');
+      console.log('Firebase Firestore: admin document seeded.');
     }
   } catch (error) {
-    console.error('Firebase Firestore Initialization Error:', error);
-    // 에러 발생 시 (인증 오류 등) 에러를 로깅하고 사용자에게 키 파일 확인 권고
-    console.warn('Please ensure that the "serviceAccount.json" is placed in the server directory or GOOGLE_APPLICATION_CREDENTIALS env is set.');
+    console.error('Migration Seeding Error:', error);
   }
 };
 
