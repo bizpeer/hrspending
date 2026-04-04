@@ -8,9 +8,6 @@ on:
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
-    env:
-      # Node.js 20 감가 경고 해결을 위해 Node 24 강제 사용 설정
-      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -18,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '22'
 
       - name: Install dependencies (Client)
         run: |
@@ -29,7 +26,6 @@ jobs:
         run: |
           cd client
           echo "Building client application..."
-          # 빌드 시 경고가 에러로 처리되지 않도록 CI=false 설정 추가 가능
           npm run build
         env:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
@@ -47,3 +43,4 @@ jobs:
           firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_HR_SPENDING }}'
           channelId: live
           projectId: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          firebaseToolsVersion: latest
