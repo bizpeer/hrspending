@@ -30,6 +30,7 @@ interface AuthState {
   initAuth: () => (() => void);
   setUserData: (userData: UserData | null) => void;
   setLoginModalOpen: (isOpen: boolean) => void;
+  logout: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -39,6 +40,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoginModalOpen: false,
   setUserData: (userData) => set({ userData }),
   setLoginModalOpen: (isOpen) => set({ isLoginModalOpen: isOpen }),
+  logout: async () => {
+    try {
+      await auth.signOut();
+      set({ user: null, userData: null });
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
+  },
   initAuth: () => {
     
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {

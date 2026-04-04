@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, LogIn, LogOut, Loader2 } from 'lucide-react';
+import { useAuthStore } from '../store/authStore';
 
 export const AttendanceDashboard: React.FC = () => {
+  const { user, setLoginModalOpen } = useAuthStore();
   const [kstTime, setKstTime] = useState<string>('');
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [isCheckedIn, setIsCheckedIn] = useState(false);
@@ -9,7 +11,6 @@ export const AttendanceDashboard: React.FC = () => {
   // 현재 KST 시각 실시간 타이머 작동
   useEffect(() => {
     const timer = setInterval(() => {
-      // 접속 위치와 무관하게 무조건 KST(Asia/Seoul) 기준 현재 시간을 표시합니다.
       const timeString = new Date().toLocaleTimeString('ko-KR', {
         timeZone: 'Asia/Seoul',
         hour12: false,
@@ -24,6 +25,11 @@ export const AttendanceDashboard: React.FC = () => {
   }, []);
 
   const handleAttendanceClick = async (type: 'checkIn' | 'checkOut') => {
+    if (!user) {
+      setLoginModalOpen(true);
+      return;
+    }
+    
     setIsCheckingIn(true);
     try {
       // TODO: Firebase Functions 또는 백엔드 API 호출을 통한 검증된 서버 시간 출퇴근 처리
