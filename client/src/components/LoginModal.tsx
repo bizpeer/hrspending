@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../firebase';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
-import { AlertCircle, X } from 'lucide-react';
+import { AlertCircle, X, Settings } from 'lucide-react';
 
 export const LoginModal: React.FC = () => {
   const { isLoginModalOpen, setLoginModalOpen } = useAuthStore();
@@ -30,6 +31,36 @@ export const LoginModal: React.FC = () => {
     } catch (err: any) {
       setError('아이디(이메일) 혹은 비밀번호가 틀렸거나 문제가 발생했습니다.');
       console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 마스터 어드민 시딩 (최초 1회용 자동생성)
+  const handleSeedMasterAdmin = async () => {
+    const adminEmail = "bizpeer@internal.com";
+    const adminPassword = "1234";
+
+    try {
+      setLoading(true);
+      setError('');
+      const userCredential = await createUserWithEmailAndPassword(auth, adminEmail, adminPassword);
+      const uid = userCredential.user.uid;
+      
+      await setDoc(doc(db, 'users', uid), {
+        uid,
+        email: adminEmail,
+        name: '최고 관리자',
+        role: 'ADMIN',
+        teamHistory: []
+      });
+      alert(`초기 마스터 관리자 계정이 생성되었습니다.\nID: bizpeer\nPW: ${adminPassword}`);
+    } catch (err: any) {
+      if (err.code === 'auth/email-already-in-use') {
+        alert("이미 관리자 계정이 생성되어 있습니다.");
+      } else {
+        alert("생성 실패: " + err.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -95,10 +126,18 @@ export const LoginModal: React.FC = () => {
             </button>
           </form>
           
-          <div className="mt-6 text-center">
+          <div className="mt-6 flex items-center justify-between">
             <p className="text-xs text-gray-400">
-              최초 로그인 이후 비밀번호를 반드시 변경해 주세요.
+              최초 로그인 시 비밀번호 변경 요망
             </p>
+            <button 
+              onClick={handleSeedMasterAdmin}
+              className="text-[10px] text-gray-200 hover:text-gray-400 flex items-center gap-1 transition-colors"
+              title="마스터 계정 초기화"
+            >
+              <Settings className="w-3 h-3" />
+              마스터 설정
+            </button>
           </div>
         </div>
       </div>
