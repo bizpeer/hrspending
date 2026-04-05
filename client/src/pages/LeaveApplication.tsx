@@ -48,7 +48,7 @@ export const LeaveApplication: React.FC = () => {
     if (!userData?.uid) return;
 
     const q = query(
-      collection(db, 'LeaveRequests'),
+      collection(db, 'leaves'),
       where('userId', '==', userData.uid),
       orderBy('createdAt', 'desc')
     );
@@ -82,7 +82,7 @@ export const LeaveApplication: React.FC = () => {
 
     try {
       setSubmitting(true);
-      await addDoc(collection(db, 'LeaveRequests'), {
+      await addDoc(collection(db, 'leaves'), {
         userId: userData.uid,
         userName: userData.name,
         type: formData.type,

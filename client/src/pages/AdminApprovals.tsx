@@ -38,12 +38,12 @@ export const AdminApprovals: React.FC = () => {
   const [filter, setFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
 
   useEffect(() => {
-    const qLeave = query(collection(db, 'LeaveRequests'), orderBy('createdAt', 'desc'));
+    const qLeave = query(collection(db, 'leaves'), orderBy('createdAt', 'desc'));
     const unsubLeave = onSnapshot(qLeave, (snap) => {
       setLeaveRequests(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as LeaveRequest)));
     });
 
-    const qExpense = query(collection(db, 'ExpenseRequests'), orderBy('createdAt', 'desc'));
+    const qExpense = query(collection(db, 'expenses'), orderBy('createdAt', 'desc'));
     const unsubExpense = onSnapshot(qExpense, (snap) => {
       setExpenseRequests(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ExpenseRequest)));
     });
@@ -150,12 +150,12 @@ export const AdminApprovals: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       {req.status === 'PENDING' ? (
                         <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => handleUpdateStatus('LeaveRequests', req.id, 'APPROVED')} className="text-emerald-600 hover:text-emerald-900 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors border border-emerald-200">
-                            승인
-                          </button>
-                          <button onClick={() => handleUpdateStatus('LeaveRequests', req.id, 'REJECTED')} className="text-rose-600 hover:text-rose-900 hover:bg-rose-50 px-3 py-1.5 rounded-lg transition-colors border border-rose-200">
-                            반려
-                          </button>
+                          <button onClick={() => handleUpdateStatus('leaves', req.id, 'APPROVED')} className="text-emerald-600 hover:text-emerald-900 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors border border-emerald-200">
+                          승인
+                        </button>
+                        <button onClick={() => handleUpdateStatus('leaves', req.id, 'REJECTED')} className="text-rose-600 hover:text-rose-900 hover:bg-rose-50 px-3 py-1.5 rounded-lg transition-colors border border-rose-200">
+                          반려
+                        </button>
                         </div>
                       ) : <span className="text-gray-400">처리 완료</span>}
                     </td>
@@ -191,12 +191,12 @@ export const AdminApprovals: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       {req.status === 'PENDING' ? (
                         <div className="flex items-center justify-end gap-2">
-                          <button onClick={() => handleUpdateStatus('ExpenseRequests', req.id, 'APPROVED')} className="text-emerald-600 hover:text-emerald-900 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors border border-emerald-200">
-                            승인
-                          </button>
-                          <button onClick={() => handleUpdateStatus('ExpenseRequests', req.id, 'REJECTED')} className="text-rose-600 hover:text-rose-900 hover:bg-rose-50 px-3 py-1.5 rounded-lg transition-colors border border-rose-200">
-                            반려
-                          </button>
+                          <button onClick={() => handleUpdateStatus('expenses', req.id, 'APPROVED')} className="text-emerald-600 hover:text-emerald-900 hover:bg-emerald-50 px-3 py-1.5 rounded-lg transition-colors border border-emerald-200">
+                          승인
+                        </button>
+                        <button onClick={() => handleUpdateStatus('expenses', req.id, 'REJECTED')} className="text-rose-600 hover:text-rose-900 hover:bg-rose-50 px-3 py-1.5 rounded-lg transition-colors border border-rose-200">
+                          반려
+                        </button>
                         </div>
                       ) : <span className="text-gray-400">처리 완료</span>}
                     </td>

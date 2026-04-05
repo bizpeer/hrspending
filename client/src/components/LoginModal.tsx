@@ -54,12 +54,15 @@ export const LoginModal: React.FC = () => {
 
   // 로그인 성공 후 mustChangePassword 상태 감시
   useEffect(() => {
-    if (userData?.mustChangePassword) {
-      setIsChangeMode(true);
-    } else {
-      setIsChangeMode(false);
+    if (userData) {
+      if (userData.mustChangePassword) {
+        setIsChangeMode(true);
+      } else {
+        setIsChangeMode(false);
+        setLoginModalOpen(false); // 일반 직원 정상 로그인 시 모달 자동 닫기!
+      }
     }
-  }, [userData]);
+  }, [userData, setLoginModalOpen]);
 
   if (!isLoginModalOpen) return null;
 

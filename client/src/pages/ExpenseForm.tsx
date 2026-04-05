@@ -21,8 +21,8 @@ export const ExpenseForm: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      // Firestore Document 생성 (ExpenseRequests)
-      await addDoc(collection(db, 'ExpenseRequests'), {
+      // Firestore Document 생성 (expenses)
+      await addDoc(collection(db, 'expenses'), {
         userId: userData?.uid,
         userName: userData?.name,
         title,
