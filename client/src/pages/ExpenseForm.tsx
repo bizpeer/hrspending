@@ -1,8 +1,21 @@
-import React, { useState } from 'react';
-import { UploadCloud, CheckCircle, FileText } from 'lucide-react';
-import { addDoc, collection } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { UploadCloud, CheckCircle, FileText, History, AlertCircle, Clock, CheckCircle2 } from 'lucide-react';
+import { addDoc, collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
+
+interface ExpenseRequest {
+  id: string;
+  userId: string;
+  userName: string;
+  title: string;
+  amount: number;
+  date: string;
+  category: string;
+  description: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  createdAt: string;
+}
 
 export const ExpenseForm: React.FC = () => {
   const { userData, user } = useAuthStore();
@@ -15,6 +28,28 @@ export const ExpenseForm: React.FC = () => {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [requests, setRequests] = useState<ExpenseRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const q = query(
+      collection(db, 'expenses'),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snap) => {
+      const allReqs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ExpenseRequest));
+      setRequests(allReqs.filter(req => req.userId === (user?.uid || userData?.uid)));
+      setLoading(false);
+    }, (error) => {
+      console.error("Firestore Subscribe Error:", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid, userData?.uid]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -172,6 +207,74 @@ export const ExpenseForm: React.FC = () => {
             </div>
           </form>
         )}
+      </div>
+
+      {/* 신청 내역 */}
+      <div className="w-full max-w-2xl bg-white shadow-lg rounded-xl overflow-hidden mt-8 p-6 mb-12">
+        <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+          <History className="w-5 h-5 text-emerald-500" />
+          최근 신청 내역
+        </h2>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="text-left border-b border-gray-50">
+                <th className="pb-4 font-bold text-gray-400 text-xs uppercase tracking-wider">분류</th>
+                <th className="pb-4 font-bold text-gray-400 text-xs uppercase tracking-wider">항목명 / 내역</th>
+                <th className="pb-4 font-bold text-gray-400 text-xs uppercase tracking-wider">금액</th>
+                <th className="pb-4 font-bold text-gray-400 text-xs uppercase tracking-wider">상태</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {requests.map((req) => (
+                <tr key={req.id} className="group hover:bg-gray-50 transition-colors">
+                  <td className="py-4">
+                    <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-600">
+                      {req.category}
+                    </span>
+                  </td>
+                  <td className="py-4">
+                    <div className="text-sm font-medium text-gray-700">
+                      {req.title}
+                    </div>
+                    <div className="text-[10px] text-gray-400 mt-0.5 max-w-[200px] line-clamp-1">{req.date} {req.description}</div>
+                  </td>
+                  <td className="py-4">
+                    <span className="text-sm font-bold text-gray-900">{req.amount.toLocaleString()}원</span>
+                  </td>
+                  <td className="py-4">
+                    <span className={`flex items-center gap-1.5 text-xs font-bold ${
+                      req.status === 'APPROVED' ? 'text-emerald-500' :
+                      req.status === 'REJECTED' ? 'text-rose-500' :
+                      'text-amber-500'
+                    }`}>
+                      {req.status === 'APPROVED' ? <CheckCircle2 className="w-3.5 h-3.5" /> : 
+                       req.status === 'REJECTED' ? <AlertCircle className="w-3.5 h-3.5" /> : 
+                       <Clock className="w-3.5 h-3.5" />}
+                      {req.status === 'APPROVED' ? '승인완료' : 
+                       req.status === 'REJECTED' ? '반려' : '대기중'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {requests.length === 0 && !loading && (
+                <tr>
+                  <td colSpan={4} className="py-20 text-center text-gray-400 text-sm">
+                    최근 신청 내역이 없습니다.
+                  </td>
+                </tr>
+              )}
+              {loading && (
+                <tr>
+                  <td colSpan={4} className="py-20 text-center text-gray-400 text-sm">
+                    데이터를 불러오는 중입니다...
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

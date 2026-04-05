@@ -8,5 +8,8 @@
     "server:dev": "npm --prefix server run dev",
     "deploy": "npm run client:build && firebase deploy",
     "emulators": "firebase emulators:start"
+  },
+  "dependencies": {
+    "firebase": "^12.11.0"
   }
 }
