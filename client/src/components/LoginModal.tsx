@@ -67,7 +67,7 @@ export const LoginModal: React.FC = () => {
   const handleAutoRegistration = async (loginEmail: string, loginPass: string) => {
     setAuthStatus('RECOVERING');
     try {
-      // 1. UserProfile에서 해당 이메일의 유저 검색
+      // 1. UserProfile에서 해당 이메일의 유저 검색 (이미 소문자화됨)
       const q = query(collection(db, 'UserProfile'), where('email', '==', loginEmail), limit(1));
       const snaps = await getDocs(q);
 
@@ -91,6 +91,7 @@ export const LoginModal: React.FC = () => {
       await setDoc(doc(db, 'UserProfile', newUid), {
         ...preRegisteredUser,
         uid: newUid,
+        email: loginEmail, // 확실히 소문자로 저장
         mustChangePassword: true,
         activatedAt: new Date().toISOString()
       });
@@ -101,7 +102,6 @@ export const LoginModal: React.FC = () => {
       }
 
       console.log("Auto-registration success for:", loginEmail);
-      // Auth 상태 변경 감지로 인해 상단 useEffect가 실행되며 비밀번호 변경 모드로 진입함
     } catch (err: any) {
       setError(err.message);
       console.error("Auto-registration failed:", err);
@@ -116,15 +116,26 @@ export const LoginModal: React.FC = () => {
     setError('');
     setLoading(true);
 
-    let loginEmail = email.trim();
+    let loginEmail = email.trim().toLowerCase(); // 소문자 표준화
     if (!loginEmail.includes('@')) {
       loginEmail = `${loginEmail}@internal.com`;
     }
 
     try {
       await signInWithEmailAndPassword(auth, loginEmail, password);
+      
+      // 로그인 성공 시 로딩 해제 (비밀번호 변경이 필요 없는 경우 모달 닫기)
+      setLoading(false);
+      const user = auth.currentUser;
+      if (user) {
+        setTimeout(() => {
+          const currentData = useAuthStore.getState().userData;
+          if (currentData && !currentData.mustChangePassword) {
+            setLoginModalOpen(false);
+          }
+        }, 500);
+      }
     } catch (err: any) {
-      // Permission Denied 발생 시 보안 규칙 문제일 수 있으므로 로그 출력
       if (err.code === 'permission-denied') {
         console.error("Critical Permission Denied - check firestore.rules for UserProfile list access.");
         setError('시스템 권한 설정 문제로 인해 본인 인증을 수행할 수 없습니다. 관리자에게 문의해 주세요.');
@@ -132,7 +143,6 @@ export const LoginModal: React.FC = () => {
         return;
       }
       
-      // 계정 없음 에러 발생 시 자동 가입 시도 (사전 등록된 직원 모델용)
       if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
         console.log("Account not found in Auth. Checking DB for pre-registration...");
         await handleAutoRegistration(loginEmail, password);

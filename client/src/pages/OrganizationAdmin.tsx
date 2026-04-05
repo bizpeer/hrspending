@@ -152,7 +152,8 @@ export const OrganizationAdmin: React.FC = () => {
   const handleCreateEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      let finalEmail = newEmp.email.trim();
+      // 대소문자 구분 이슈 해결을 위해 소문자 표준화
+      let finalEmail = newEmp.email.trim().toLowerCase();
       if (!finalEmail.includes('@')) {
         finalEmail = `${finalEmail}@internal.com`;
       }
@@ -170,7 +171,7 @@ export const OrganizationAdmin: React.FC = () => {
       });
       
       await logAction('CREATE_EMPLOYEE', tempId, newEmp.name, `직원 등록 (${finalEmail}) / 임비 123456`);
-      alert(`[안내] 신규 직원 데이터가 등록되었습니다.\n아이디: ${newEmp.email}\n임시 비밀번호: 123456\n로그인 시 비밀번호 변경이 필요합니다.`);
+      alert(`[안내] 신규 직원 데이터가 등록되었습니다.\n아이디: ${finalEmail.split('@')[0]}\n임시 비밀번호: 123456\n로그인 시 비밀번호 변경이 필요합니다.`);
       setShowEmployeeModal(false);
       setNewEmp({ name: '', email: '', teamId: '', joinDate: new Date().toISOString().split('T')[0] });
     } catch (err) {
