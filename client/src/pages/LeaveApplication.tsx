@@ -45,7 +45,7 @@ export const LeaveApplication: React.FC = () => {
   const remainingLeave = totalLeave - usedLeave;
 
   useEffect(() => {
-    if (!userData?.uid) return;
+    if (!user?.uid) return;
 
     const q = query(
       collection(db, 'leaves'),
@@ -60,11 +60,11 @@ export const LeaveApplication: React.FC = () => {
     }, (error) => {
       console.error("Firestore Subscribe Error:", error);
       setLoading(false);
-      alert("휴가 정보를 불러오는 데 권한/인덱스 에러가 발생했습니다.");
+      alert("휴가 정보를 불러오는 데 권한/인덱스 에러가 발생했습니다. 로그아웃 후 다시 접속해 주세요.");
     });
 
     return () => unsubscribe();
-  }, [userData?.uid]);
+  }, [user?.uid, userData?.uid]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
