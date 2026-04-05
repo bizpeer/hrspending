@@ -20,7 +20,7 @@ interface LeaveRequest {
 }
 
 export const LeaveApplication: React.FC = () => {
-  const { userData } = useAuthStore();
+  const { userData, user } = useAuthStore();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -55,7 +55,7 @@ export const LeaveApplication: React.FC = () => {
     const unsubscribe = onSnapshot(q, (snap) => {
       const allReqs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as LeaveRequest));
       // 클라이언트 사이드 필터링 (Firestore 인덱스 에러 방지)
-      setRequests(allReqs.filter(req => req.userId === userData?.uid));
+      setRequests(allReqs.filter(req => req.userId === (user?.uid || userData?.uid)));
       setLoading(false);
     }, (error) => {
       console.error("Firestore Subscribe Error:", error);
@@ -80,7 +80,7 @@ export const LeaveApplication: React.FC = () => {
       return;
     }
 
-    if (formData.type !== 'sick' && days > remainingLeave) {
+    if ((formData.type === 'annual' || formData.type === 'half') && days > remainingLeave) {
       alert("잔여 연차가 부족합니다.");
       return;
     }
@@ -88,8 +88,8 @@ export const LeaveApplication: React.FC = () => {
     try {
       setSubmitting(true);
       await addDoc(collection(db, 'leaves'), {
-        userId: userData.uid || 'UNKNOWN',
-        userName: userData.name || '직원',
+        userId: user?.uid || userData?.uid || 'UNKNOWN',
+        userName: userData?.name || '가입대기(직원)',
         type: formData.type || 'annual',
         startDate: formData.startDate || '',
         endDate: formData.endDate || '',

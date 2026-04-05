@@ -5,7 +5,7 @@ import { db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
 
 export const ExpenseForm: React.FC = () => {
-  const { userData } = useAuthStore();
+  const { userData, user } = useAuthStore();
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState('');
@@ -23,8 +23,8 @@ export const ExpenseForm: React.FC = () => {
     try {
       // Firestore Document 생성 (expenses)
       await addDoc(collection(db, 'expenses'), {
-        userId: userData?.uid || 'UNKNOWN',
-        userName: userData?.name || '직원',
+        userId: user?.uid || userData?.uid || 'UNKNOWN',
+        userName: userData?.name || '가입대기(직원)',
         title: title || '',
         amount: Number(amount) || 0,
         date: date || '',
