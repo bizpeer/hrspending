@@ -12,6 +12,7 @@ import { AdminSettings } from './pages/AdminSettings';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginModal } from './components/LoginModal';
 import { useAuthStore } from './store/authStore';
+import { LoadingSplash } from './components/LoadingSplash';
 
 function App() {
   const { initAuth, userData, loading } = useAuthStore();
@@ -25,7 +26,7 @@ function App() {
   }, [initAuth]);
 
   if (loading) {
-    return <div className="flex h-screen items-center justify-center">Loading Application...</div>;
+    return <LoadingSplash />;
   }
 
   return (

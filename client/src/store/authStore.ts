@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { User } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
 export type Role = 'ADMIN' | 'SUB_ADMIN' | 'EMPLOYEE';
@@ -49,17 +49,30 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
   initAuth: () => {
-    
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       if (user) {
         set({ user, loading: true });
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
+          
           if (userDoc.exists()) {
             set({ userData: userDoc.data() as UserData, loading: false });
           } else {
-            // 유저 문서가 Firestore에 없으면 알 수 없는 상태
-            set({ userData: null, loading: false });
+            // [권한 복구 로직] bizpeer 계정인데 Firestore 문서가 없는 경우 자동 생성
+            if (user.email === 'bizpeer@internal.com') {
+              const newAdminData: UserData = {
+                uid: user.uid,
+                email: user.email,
+                name: '최고 관리자 (복구됨)',
+                role: 'ADMIN',
+                teamHistory: []
+              };
+              await setDoc(doc(db, 'users', user.uid), newAdminData);
+              set({ userData: newAdminData, loading: false });
+              console.log("Master Admin profile recovered automatically.");
+            } else {
+              set({ userData: null, loading: false });
+            }
           }
         } catch (error) {
           console.error("Failed to fetch user data", error);
