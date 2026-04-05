@@ -30,5 +30,5 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 // Initialize Cloud Firestore and get a reference to the service
-// 사용자의 요청에 따라 명시적으로 'hrspending' 데이터베이스를 지정합니다.
-export const db = getFirestore(app, 'hrspending');
+// 환경 변수(VITE_FIREBASE_DATABASE_ID)를 통해 명시된 데이터베이스(예: hrspending)를 우선 타겟팅하며, 없을 시 (default)로 폴백합니다.
+export const db = getFirestore(app, import.meta.env.VITE_FIREBASE_DATABASE_ID || '(default)');
