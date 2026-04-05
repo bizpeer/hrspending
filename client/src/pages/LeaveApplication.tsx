@@ -49,13 +49,18 @@ export const LeaveApplication: React.FC = () => {
 
     const q = query(
       collection(db, 'leaves'),
-      where('userId', '==', userData.uid),
       orderBy('createdAt', 'desc')
     );
 
     const unsubscribe = onSnapshot(q, (snap) => {
-      setRequests(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as LeaveRequest)));
+      const allReqs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as LeaveRequest));
+      // 클라이언트 사이드 필터링 (Firestore 인덱스 에러 방지)
+      setRequests(allReqs.filter(req => req.userId === userData.uid));
       setLoading(false);
+    }, (error) => {
+      console.error("Firestore Subscribe Error:", error);
+      setLoading(false);
+      alert("휴가 정보를 불러오는 데 권한/인덱스 에러가 발생했습니다.");
     });
 
     return () => unsubscribe();
@@ -83,14 +88,14 @@ export const LeaveApplication: React.FC = () => {
     try {
       setSubmitting(true);
       await addDoc(collection(db, 'leaves'), {
-        userId: userData.uid,
-        userName: userData.name,
-        type: formData.type,
-        startDate: formData.startDate,
-        endDate: formData.endDate,
-        reason: formData.reason,
+        userId: userData.uid || 'UNKNOWN',
+        userName: userData.name || '직원',
+        type: formData.type || 'annual',
+        startDate: formData.startDate || '',
+        endDate: formData.endDate || '',
+        reason: formData.reason || '',
         status: 'PENDING',
-        requestDays: days,
+        requestDays: days || 0,
         createdAt: new Date().toISOString()
       });
       

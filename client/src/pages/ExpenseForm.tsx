@@ -23,13 +23,13 @@ export const ExpenseForm: React.FC = () => {
     try {
       // Firestore Document 생성 (expenses)
       await addDoc(collection(db, 'expenses'), {
-        userId: userData?.uid,
-        userName: userData?.name,
-        title,
-        amount,
-        date,
-        category,
-        description,
+        userId: userData?.uid || 'UNKNOWN',
+        userName: userData?.name || '직원',
+        title: title || '',
+        amount: Number(amount) || 0,
+        date: date || '',
+        category: category || '',
+        description: description || '',
         status: 'PENDING',
         createdAt: new Date().toISOString()
       });
