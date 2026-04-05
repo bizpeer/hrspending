@@ -6,33 +6,39 @@ service cloud.firestore {
     function isAuthenticated() { return request.auth != null; }
     
     // Firestore 문서의 role 필드를 조회하여 권한을 확인합니다.
+    // 기존 users 컬렉션을 UserProfile로 통합하여 관리합니다.
     function getRole() { 
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role; 
+      return get(/databases/$(database)/documents/UserProfile/$(request.auth.uid)).data.role; 
     }
     
     function isAdmin() { return isAuthenticated() && getRole() == 'ADMIN'; }
     function isSubAdmin() { return isAuthenticated() && getRole() == 'SUB_ADMIN'; }
     function isManagement() { return isAdmin() || isSubAdmin(); }
 
-    // 컬렉션 규칙 (소문자로 통일)
-    
     // 본부 관리 (divisions)
     match /divisions/{divisionId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin(); // 본부 생성/삭제는 최고 관리자만
+      allow write: if isAdmin();
     }
 
     // 팀 관리 (teams)
     match /teams/{teamId} {
       allow read: if isAuthenticated();
-      allow write: if isManagement(); // 팀 생성/수정은 (최고/부) 관리자 가능
+      allow write: if isManagement();
     }
 
-    // 유저 관리 (users)
-    match /users/{userId} {
+    // 유저/직원 프로필 관리 (UserProfile)
+    match /UserProfile/{userId} {
       allow read: if isAuthenticated();
       allow create, update: if isManagement() || request.auth.uid == userId;
       allow delete: if isAdmin();
+    }
+
+    // 감사 로그 (AuditLogs)
+    match /AuditLogs/{logId} {
+      allow read: if isManagement();
+      allow create: if isManagement();
+      allow update, delete: if false; // 로그는 수정/삭제 불가 (보안강화)
     }
 
     // 근태 기록 (attendance)
