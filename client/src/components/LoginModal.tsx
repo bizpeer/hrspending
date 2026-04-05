@@ -4,10 +4,12 @@ import {
   createUserWithEmailAndPassword,
   updatePassword
 } from 'firebase/auth';
-import { doc, setDoc, collection, getDocs, query, limit, updateDoc, addDoc } from 'firebase/firestore';
+import { 
+  doc, setDoc, collection, getDocs, query, limit, updateDoc, addDoc, where, deleteDoc 
+} from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
-import { AlertCircle, X, Settings, Loader2, KeyRound, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, X, Settings, Loader2, KeyRound, CheckCircle2, UserPlus } from 'lucide-react';
 
 export const LoginModal: React.FC = () => {
   const { isLoginModalOpen, setLoginModalOpen, userData } = useAuthStore();
@@ -18,6 +20,7 @@ export const LoginModal: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [authStatus, setAuthStatus] = useState<'IDLE' | 'CHECKING' | 'RECOVERING'>('IDLE');
 
   // 비밀번호 변경 관련
   const [isChangeMode, setIsChangeMode] = useState(false);
@@ -30,7 +33,6 @@ export const LoginModal: React.FC = () => {
     const checkStatus = async () => {
       if (!isLoginModalOpen) return;
       
-      // 1. 초기 시딩 체크
       try {
         setIsInitializing(true);
         const q = query(collection(db, 'UserProfile'), limit(1));
@@ -61,6 +63,54 @@ export const LoginModal: React.FC = () => {
 
   if (!isLoginModalOpen) return null;
 
+  // 자동 계정 생성 로직 (관리자 사전 등록 직원)
+  const handleAutoRegistration = async (loginEmail: string, loginPass: string) => {
+    setAuthStatus('RECOVERING');
+    try {
+      // 1. UserProfile에서 해당 이메일의 유저 검색
+      const q = query(collection(db, 'UserProfile'), where('email', '==', loginEmail), limit(1));
+      const snaps = await getDocs(q);
+
+      if (snaps.empty) {
+        throw new Error("가입되지 않은 이메일입니다. 관리자에게 문의하세요.");
+      }
+
+      const preRegisteredUser = snaps.docs[0].data();
+      const oldDocId = snaps.docs[0].id;
+
+      // 2. 초기 비밀번호가 123456인지 확인 (보안)
+      if (loginPass !== '123456') {
+        throw new Error("계정 활성화를 위해 초기 비밀번호(123456)를 입력해주세요.");
+      }
+
+      // 3. Firebase Auth 계정 생성
+      const userCredential = await createUserWithEmailAndPassword(auth, loginEmail, loginPass);
+      const newUid = userCredential.user.uid;
+
+      // 4. 데이터 이전 (임시 문서 -> 실제 UID 문서)
+      await setDoc(doc(db, 'UserProfile', newUid), {
+        ...preRegisteredUser,
+        uid: newUid,
+        mustChangePassword: true,
+        activatedAt: new Date().toISOString()
+      });
+
+      // 5. 이전 임시 문서 삭제 (ID가 실제 UID와 다를 경우만)
+      if (oldDocId !== newUid) {
+        await deleteDoc(doc(db, 'UserProfile', oldDocId));
+      }
+
+      console.log("Auto-registration success for:", loginEmail);
+      // Auth 상태 변경 감지로 인해 상단 useEffect가 실행되며 비밀번호 변경 모드로 진입함
+    } catch (err: any) {
+      setError(err.message);
+      console.error("Auto-registration failed:", err);
+      setLoading(false);
+    } finally {
+      setAuthStatus('IDLE');
+    }
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -73,11 +123,16 @@ export const LoginModal: React.FC = () => {
 
     try {
       await signInWithEmailAndPassword(auth, loginEmail, password);
-      // userData가 업데이트되면서 위 useEffect에 의해 모드가 변경됨
     } catch (err: any) {
-      setError('아이디(이메일) 혹은 비밀번호가 틀렸거나 문제가 발생했습니다.');
-      console.error(err);
-      setLoading(false);
+      // 계정 없음 에러 발생 시 자동 가입 시도 (사전 등록된 직원 모델용)
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+        console.log("Account not found in Auth. Checking DB for pre-registration...");
+        await handleAutoRegistration(loginEmail, password);
+      } else {
+        setError('로그인 실패: 아이디 혹은 비밀번호를 확인해 주세요.');
+        console.error(err);
+        setLoading(false);
+      }
     }
   };
 
@@ -99,23 +154,20 @@ export const LoginModal: React.FC = () => {
       const user = auth.currentUser;
       if (!user) throw new Error("인증 세션이 만료되었습니다.");
 
-      // 1. Firebase Auth 비밀번호 업데이트
       await updatePassword(user, newPassword);
 
-      // 2. UserProfile 플래그 업데이트
       await updateDoc(doc(db, 'UserProfile', user.uid), {
         mustChangePassword: false,
         lastPasswordChange: new Date().toISOString()
       });
 
-      // 3. 감사 로그 기록
       await addDoc(collection(db, 'AuditLogs'), {
         timestamp: new Date().toISOString(),
         actionType: 'UPDATE_PASSWORD',
         performedBy: userData?.name || '시스템',
         targetId: user.uid,
         targetName: userData?.name || '',
-        details: '최초 로그인 비밀번호 변경 완료'
+        details: '최초 로그인 비밀번호 변경 완료 (계정 활성화)'
       });
 
       setChangeSuccess(true);
@@ -124,7 +176,7 @@ export const LoginModal: React.FC = () => {
         setChangeSuccess(false);
       }, 2000);
     } catch (err: any) {
-      setError('비밀번호 변경 중 오류가 발생했습니다: ' + err.message);
+      setError('비밀번호 변경 실패: ' + err.message);
       console.error(err);
     } finally {
       setLoading(false);
@@ -147,21 +199,16 @@ export const LoginModal: React.FC = () => {
         name: '최고 관리자',
         role: 'ADMIN',
         teamHistory: [],
-        mustChangePassword: true, // 마스터도 최초엔 변경 권장
+        mustChangePassword: true,
         createdAt: new Date().toISOString()
       });
       
       if (isAuto) {
-        alert(`[시스템 초기설정 완료] 마스터 관리자 계정이 생성되었습니다.\nID: bizpeer\nPW: ${adminPassword}\n로그인 해 주세요.`);
-      } else {
-        alert(`마스터 관리자 계정이 생성되었습니다.\nID: bizpeer\nPW: ${adminPassword}`);
+        alert(`[시스템 초기설정 완료] 마스터 관리자 계정이 생성되었습니다.\nID: bizpeer\nPW: ${adminPassword}`);
       }
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
-        if (!isAuto) alert("이미 관리자 계정이 생성되어 있습니다.");
-      } else {
-        console.error("Seeding failed:", err);
-        if (!isAuto) alert("생성 실패: " + err.message);
+        if (!isAuto) console.log("Master Admin already exists.");
       }
     } finally {
       if (!isAuto) setLoading(false);
@@ -181,15 +228,24 @@ export const LoginModal: React.FC = () => {
         )}
 
         <div className="p-8">
-          {isChangeMode ? (
+          {authStatus !== 'IDLE' ? (
+            <div className="flex flex-col items-center justify-center py-10 gap-4 text-indigo-600">
+              <UserPlus className="w-12 h-12 animate-pulse" />
+              <div className="text-center">
+                <p className="font-bold text-lg">계정을 활성화하는 중입니다</p>
+                <p className="text-sm text-gray-400">최초 로그인 시 1회 진행됩니다.</p>
+              </div>
+              <Loader2 className="w-6 h-6 animate-spin mt-2" />
+            </div>
+          ) : isChangeMode ? (
             <div className="text-center">
               {changeSuccess ? (
                 <div className="py-10 flex flex-col items-center gap-4 animate-in zoom-in duration-500">
                   <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
                     <CheckCircle2 className="w-10 h-10" />
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-900">변경 완료!</h3>
-                  <p className="text-gray-500">잠시 후 대시보드로 이동합니다.</p>
+                  <h3 className="text-2xl font-bold text-gray-900">환영합니다!</h3>
+                  <p className="text-gray-500">계정이 활성화되었습니다.</p>
                 </div>
               ) : (
                 <>
@@ -199,7 +255,7 @@ export const LoginModal: React.FC = () => {
                     </div>
                   </div>
                   <h2 className="text-2xl font-bold text-gray-900 mb-2">비밀번호 변경</h2>
-                  <p className="text-gray-500 text-sm mb-8">안전한 서비스 이용을 위해<br/>최초 비밀번호를 반드시 변경해야 합니다.</p>
+                  <p className="text-gray-500 text-sm mb-8">보안을 위해 초기 비밀번호를<br/>반드시 변경해 주세요.</p>
 
                   <form onSubmit={handleChangePassword} className="space-y-4">
                     {error && (
@@ -225,7 +281,7 @@ export const LoginModal: React.FC = () => {
                         type="password"
                         required
                         className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-                        placeholder="비밀번호 다시 입력"
+                        placeholder="새 비밀번호 다시 입력"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                       />
@@ -235,7 +291,7 @@ export const LoginModal: React.FC = () => {
                       disabled={loading}
                       className="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all disabled:opacity-50 mt-4"
                     >
-                      {loading ? '변경 중...' : '비밀번호 저장'}
+                      {loading ? '변경 중...' : '비밀번호 저장 및 시작'}
                     </button>
                   </form>
                 </>
