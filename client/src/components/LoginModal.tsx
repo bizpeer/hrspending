@@ -39,7 +39,7 @@ export const LoginModal: React.FC = () => {
   // 마스터 어드민 시딩 (최초 1회용 자동생성)
   const handleSeedMasterAdmin = async () => {
     const adminEmail = "bizpeer@internal.com";
-    const adminPassword = "1234";
+    const adminPassword = "123456";
 
     try {
       setLoading(true);

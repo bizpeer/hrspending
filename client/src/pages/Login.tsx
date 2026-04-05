@@ -41,7 +41,7 @@ export const Login: React.FC = () => {
   const handleSeedMasterAdmin = async () => {
     const adminId = "bizpeer";
     const adminEmail = "bizpeer@internal.com";
-    const adminPassword = "1234";
+    const adminPassword = "123456";
 
     try {
       setLoading(true);
