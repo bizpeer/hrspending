@@ -53,33 +53,30 @@ export const useAuthStore = create<AuthState>((set) => ({
       console.log("[Auth] State Change:", user ? `Logged in (${user.email})` : "Logged out");
       
       if (user) {
+        const isMaster = user.email?.toLowerCase().trim() === 'bizpeer@internal.com';
         set({ user, loading: true });
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
-          console.log("[Auth] Firestore Doc exists:", userDoc.exists());
+          let currentData: UserData | null = userDoc.exists() ? (userDoc.data() as UserData) : null;
           
-          if (userDoc.exists()) {
-            set({ userData: userDoc.data() as UserData, loading: false });
-          } else {
-            // [권한 복구 로직] bizpeer 계정인데 Firestore 문서가 없는 경우 자동 생성 (대소문자 무시)
-            const isMaster = user.email?.toLowerCase().trim() === 'bizpeer@internal.com';
-            console.log("[Auth] Master Detection:", isMaster);
-
-            if (isMaster) {
-              const newAdminData: UserData = {
+          // [마스터 권한 강제 보장] 데이터가 없거나 역할이 ADMIN이 아니면 강제로 수정
+          if (isMaster) {
+            if (!currentData || currentData.role !== 'ADMIN') {
+              currentData = {
                 uid: user.uid,
                 email: user.email || 'bizpeer@internal.com',
-                name: '최고 관리자 (자동복원)',
+                name: currentData?.name || '최고 관리자',
                 role: 'ADMIN',
-                teamHistory: []
+                teamHistory: currentData?.teamHistory || [],
+                teamId: currentData?.teamId || ''
               };
-              await setDoc(doc(db, 'users', user.uid), newAdminData);
-              set({ userData: newAdminData, loading: false });
-              console.log("[Auth] Master profile RECOVERED.");
-            } else {
-              set({ userData: null, loading: false });
+              await setDoc(doc(db, 'users', user.uid), currentData);
+              console.log("[Auth] Master profile FORCED/RECOVERED to ADMIN.");
             }
           }
+          
+          set({ userData: currentData, loading: false });
+          console.log("[Auth] Final UserData:", currentData);
         } catch (error) {
           console.error("[Auth] Error fetching doc:", error);
           set({ userData: null, loading: false });
