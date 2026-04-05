@@ -1,12 +1,14 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper Functions
-    function isAuthenticated() { return request.auth != null; }
+    
+    // 유틸리티 함수: 사용자가 인증되었는지 확인
+    function isAuthenticated() {
+      return request.auth != null;
+    }
     
     // Firestore 문서의 role 필드를 조회하여 권한을 확인합니다.
-    // 기존 users 컬렉션을 UserProfile로 통합하여 관리합니다.
     // UserProfile 문서가 존재할 때만 role을 조회하여 규칙 평가 에러를 방지합니다.
     function getRole() { 
       let path = /databases/$(database)/documents/UserProfile/$(request.auth.uid);
@@ -31,57 +33,52 @@ service cloud.firestore {
 
     // 유저/직원 프로필 관리 (UserProfile)
     match /UserProfile/{userId} {
-      // 1. 읽기: 로그인했거나, 로그인 전 본인 확인을 위해 1건만 조회하는 경우 허용 (리스트 조회 차단용 limit 1)
+      // 1. 읽기: 로그인 전 '아이디/이메일'로 본인 정보를 조회해야 하므로 1건 조회를 허용합니다.
+      // (전체 리스트 조회를 막기 위해 limit 1 쿼리만 허용)
       allow read: if isAuthenticated() || (request.query.limit <= 1);
       
       // 2. 생성/수정: 관리자거나 본인인 경우
       allow create, update: if isManagement() || (isAuthenticated() && request.auth.uid == userId);
       
-      // 3. 삭제: 관리자거나, 계정 활성화 직후 자신의 임시 데이터를 지우는 경우 (이메일 혹은 데이터 기반 확인)
-      allow delete: if isAdmin() || (isAuthenticated() && request.auth.token.email != null);
+      // 3. 삭제: 관리자거나, 인증된 사용자인 경우 (계정 활성화 시 임시 문서 삭제용)
+      allow delete: if isAdmin() || isAuthenticated();
     }
 
     // 감사 로그 (AuditLogs)
     match /AuditLogs/{logId} {
       allow read: if isManagement();
-      allow create: if isManagement();
-      allow update, delete: if false; // 로그는 수정/삭제 불가 (보안강화)
+      allow create: if true; // 누구나 로그 기록 가능 (로그인 전 계정 활성화 기록 등)
     }
 
-    // 근태 기록 (attendance)
-    match /attendance/{recordId} {
+    // 공지사항 (announcements)
+    match /announcements/{announcementId} {
       allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated() && (request.auth.uid == request.resource.data.userId || isManagement());
-      allow delete: if isManagement();
+      allow write: if isManagement();
     }
 
-    // 휴가 신청 (leave_requests)
-    match /leave_requests/{requestId} {
+    // 경비 신청 (expenses)
+    match /expenses/{expenseId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
-      allow update: if isAuthenticated() && (request.auth.uid == resource.data.userId || isManagement());
-      allow delete: if isManagement();
-    }
-
-    // 지출 결의 (expense_requests)
-    match /expense_requests/{expenseId} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isManagement());
-      allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
-      allow update: if isAuthenticated() && (request.auth.uid == resource.data.userId || isManagement());
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        resource.data.userId == request.auth.uid || isManagement()
+      );
       allow delete: if isAdmin();
     }
 
-    // 알람 및 공지 (notifications)
-    match /notifications/{notificationId} {
+    // 휴가 신청 (leaves)
+    match /leaves/{leaveId} {
       allow read: if isAuthenticated();
-      allow create, delete: if isManagement();
+      allow create: if isAuthenticated();
       allow update: if isAuthenticated() && (
-        isManagement() || 
-        (
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']) &&
-          request.resource.data.readBy.hasAll([request.auth.uid])
-        )
+        resource.data.userId == request.auth.uid || isManagement()
       );
+      allow delete: if isAdmin();
+    }
+
+    // 기본 규칙: 그 외 모든 컬렉션은 인증된 사용자만 읽기 허용
+    match /{document=**} {
+      allow read, write: if isAdmin();
     }
   }
 }
