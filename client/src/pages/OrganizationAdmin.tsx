@@ -165,11 +165,12 @@ export const OrganizationAdmin: React.FC = () => {
         teamId: newEmp.teamId || '',
         teamHistory: [],
         joinDate: newEmp.joinDate,
+        mustChangePassword: true, // 최초 로그인 시 비밀번호 변경 필수
         createdAt: new Date().toISOString()
       });
       
-      await logAction('CREATE_EMPLOYEE', tempId, newEmp.name, `직원 등록 (${finalEmail})`);
-      alert(`[안내] 신규 직원 데이터가 등록되었습니다.\n아이디: ${newEmp.email}\n(서버 등록 형식: ${finalEmail})\n(실제 로그인을 위해서는 해당 아이디로 가입 절차가 필요합니다.)`);
+      await logAction('CREATE_EMPLOYEE', tempId, newEmp.name, `직원 등록 (${finalEmail}) / 임비 123456`);
+      alert(`[안내] 신규 직원 데이터가 등록되었습니다.\n아이디: ${newEmp.email}\n임시 비밀번호: 123456\n로그인 시 비밀번호 변경이 필요합니다.`);
       setShowEmployeeModal(false);
       setNewEmp({ name: '', email: '', teamId: '', joinDate: new Date().toISOString().split('T')[0] });
     } catch (err) {

@@ -23,6 +23,7 @@ export interface UserData {
   joinDate?: string; // 입사일 (YYYY-MM-DD)
   annualLeaveTotal?: number; // 총 발생 연차
   usedLeave?: number; // 사용한 연차
+  mustChangePassword?: boolean; // 최초 로그인 시 비밀번호 변경 여부
 }
 
 interface AuthState {

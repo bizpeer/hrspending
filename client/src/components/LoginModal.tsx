@@ -1,32 +1,44 @@
 import React, { useState, useEffect } from 'react';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, collection, getDocs, query, limit } from 'firebase/firestore';
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword,
+  updatePassword
+} from 'firebase/auth';
+import { doc, setDoc, collection, getDocs, query, limit, updateDoc, addDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
-import { AlertCircle, X, Settings, Loader2 } from 'lucide-react';
+import { AlertCircle, X, Settings, Loader2, KeyRound, CheckCircle2 } from 'lucide-react';
 
 export const LoginModal: React.FC = () => {
-  const { isLoginModalOpen, setLoginModalOpen } = useAuthStore();
+  const { isLoginModalOpen, setLoginModalOpen, userData } = useAuthStore();
+  
+  // 로그인 관련
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
 
-  // 마스터 어드민 자동 시딩 (최초 1회용)
+  // 비밀번호 변경 관련
+  const [isChangeMode, setIsChangeMode] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changeSuccess, setChangeSuccess] = useState(false);
+
+  // 마스터 어드민 자동 시딩 및 비밀번호 변경 체크
   useEffect(() => {
-    const checkAndSeed = async () => {
+    const checkStatus = async () => {
       if (!isLoginModalOpen) return;
       
+      // 1. 초기 시딩 체크
       try {
         setIsInitializing(true);
-        // UserProfile 컬렉션에 데이터가 하나라도 있는지 확인
         const q = query(collection(db, 'UserProfile'), limit(1));
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
           console.log("No users found. Seeding master admin...");
-          await handleSeedMasterAdmin(true); // 자동 모드로 실행
+          await handleSeedMasterAdmin(true); 
         }
       } catch (err) {
         console.error("Initialization check failed:", err);
@@ -35,8 +47,17 @@ export const LoginModal: React.FC = () => {
       }
     };
 
-    checkAndSeed();
+    checkStatus();
   }, [isLoginModalOpen]);
+
+  // 로그인 성공 후 mustChangePassword 상태 감시
+  useEffect(() => {
+    if (userData?.mustChangePassword) {
+      setIsChangeMode(true);
+    } else {
+      setIsChangeMode(false);
+    }
+  }, [userData]);
 
   if (!isLoginModalOpen) return null;
 
@@ -45,7 +66,6 @@ export const LoginModal: React.FC = () => {
     setError('');
     setLoading(true);
 
-    // 아이디를 이메일 형식으로 자동 변환 (가상 이메일 시스템)
     let loginEmail = email.trim();
     if (!loginEmail.includes('@')) {
       loginEmail = `${loginEmail}@internal.com`;
@@ -53,16 +73,64 @@ export const LoginModal: React.FC = () => {
 
     try {
       await signInWithEmailAndPassword(auth, loginEmail, password);
-      setLoginModalOpen(false); // 로그인 성공 시 모달 닫기
+      // userData가 업데이트되면서 위 useEffect에 의해 모드가 변경됨
     } catch (err: any) {
       setError('아이디(이메일) 혹은 비밀번호가 틀렸거나 문제가 발생했습니다.');
+      console.error(err);
+      setLoading(false);
+    }
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    
+    if (newPassword !== confirmPassword) {
+      setError('새 비밀번호가 일치하지 않습니다.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setError('비밀번호는 최소 6자 이상이어야 합니다.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const user = auth.currentUser;
+      if (!user) throw new Error("인증 세션이 만료되었습니다.");
+
+      // 1. Firebase Auth 비밀번호 업데이트
+      await updatePassword(user, newPassword);
+
+      // 2. UserProfile 플래그 업데이트
+      await updateDoc(doc(db, 'UserProfile', user.uid), {
+        mustChangePassword: false,
+        lastPasswordChange: new Date().toISOString()
+      });
+
+      // 3. 감사 로그 기록
+      await addDoc(collection(db, 'AuditLogs'), {
+        timestamp: new Date().toISOString(),
+        actionType: 'UPDATE_PASSWORD',
+        performedBy: userData?.name || '시스템',
+        targetId: user.uid,
+        targetName: userData?.name || '',
+        details: '최초 로그인 비밀번호 변경 완료'
+      });
+
+      setChangeSuccess(true);
+      setTimeout(() => {
+        setLoginModalOpen(false);
+        setChangeSuccess(false);
+      }, 2000);
+    } catch (err: any) {
+      setError('비밀번호 변경 중 오류가 발생했습니다: ' + err.message);
       console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  // 마스터 어드민 시딩 로직
   const handleSeedMasterAdmin = async (isAuto = false) => {
     const adminEmail = "bizpeer@internal.com";
     const adminPassword = "123456";
@@ -79,6 +147,7 @@ export const LoginModal: React.FC = () => {
         name: '최고 관리자',
         role: 'ADMIN',
         teamHistory: [],
+        mustChangePassword: true, // 마스터도 최초엔 변경 권장
         createdAt: new Date().toISOString()
       });
       
@@ -102,83 +171,149 @@ export const LoginModal: React.FC = () => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden relative animate-in fade-in zoom-in duration-300">
-        <button 
-          onClick={() => setLoginModalOpen(false)}
-          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {!isChangeMode && (
+          <button 
+            onClick={() => setLoginModalOpen(false)}
+            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
 
         <div className="p-8">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">
-              <span className="text-indigo-600">HR Flow</span> 로그인
-            </h2>
-            <p className="text-gray-500">계속하시려면 로그인해주세요</p>
-          </div>
+          {isChangeMode ? (
+            <div className="text-center">
+              {changeSuccess ? (
+                <div className="py-10 flex flex-col items-center gap-4 animate-in zoom-in duration-500">
+                  <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
+                    <CheckCircle2 className="w-10 h-10" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900">변경 완료!</h3>
+                  <p className="text-gray-500">잠시 후 대시보드로 이동합니다.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex justify-center mb-6">
+                    <div className="p-4 bg-indigo-50 rounded-2xl">
+                      <KeyRound className="w-10 h-10 text-indigo-600" />
+                    </div>
+                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">비밀번호 변경</h2>
+                  <p className="text-gray-500 text-sm mb-8">안전한 서비스 이용을 위해<br/>최초 비밀번호를 반드시 변경해야 합니다.</p>
 
-          {isInitializing ? (
-            <div className="flex flex-col items-center justify-center py-10 gap-3 text-indigo-600">
-              <Loader2 className="w-8 h-8 animate-spin" />
-              <p className="font-medium">시스템 최적화 중...</p>
+                  <form onSubmit={handleChangePassword} className="space-y-4">
+                    {error && (
+                      <div className="bg-red-50 text-red-700 p-3 rounded-lg flex items-center gap-2 text-xs font-medium border border-red-100">
+                        <AlertCircle className="w-4 h-4 shrink-0" />
+                        {error}
+                      </div>
+                    )}
+                    <div className="text-left">
+                      <label className="block text-xs font-bold text-gray-500 uppercase ml-1 mb-1.5">새 비밀번호</label>
+                      <input
+                        type="password"
+                        required
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                        placeholder="최소 6자 이상"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                      />
+                    </div>
+                    <div className="text-left">
+                      <label className="block text-xs font-bold text-gray-500 uppercase ml-1 mb-1.5">비밀번호 확인</label>
+                      <input
+                        type="password"
+                        required
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                        placeholder="비밀번호 다시 입력"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all disabled:opacity-50 mt-4"
+                    >
+                      {loading ? '변경 중...' : '비밀번호 저장'}
+                    </button>
+                  </form>
+                </>
+              )}
             </div>
           ) : (
-            <form onSubmit={handleLogin} className="space-y-5">
-              {error && (
-                <div className="bg-red-50 text-red-700 p-4 rounded-xl flex items-center gap-3 text-sm font-medium border border-red-100">
-                  <AlertCircle className="w-5 h-5 shrink-0" />
-                  {error}
-                </div>
-              )}
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">아이디 또는 이메일</label>
-                  <input
-                    type="text"
-                    required
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
-                    placeholder="아이디 또는 email@company.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">비밀번호</label>
-                  <input
-                    type="password"
-                    required
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
-                    placeholder="비밀번호 입력"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </div>
+            <>
+              <div className="text-center mb-8">
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                  <span className="text-indigo-600">HR Flow</span> 로그인
+                </h2>
+                <p className="text-gray-500">계속하시려면 로그인해주세요</p>
               </div>
 
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-lg shadow-indigo-200 disabled:opacity-50"
-              >
-                {loading ? '인증 중...' : '로그인'}
-              </button>
-            </form>
+              {isInitializing ? (
+                <div className="flex flex-col items-center justify-center py-10 gap-3 text-indigo-600">
+                  <Loader2 className="w-8 h-8 animate-spin" />
+                  <p className="font-medium">시스템 최적화 중...</p>
+                </div>
+              ) : (
+                <form onSubmit={handleLogin} className="space-y-5">
+                  {error && (
+                    <div className="bg-red-50 text-red-700 p-4 rounded-xl flex items-center gap-3 text-sm font-medium border border-red-100">
+                      <AlertCircle className="w-5 h-5 shrink-0" />
+                      {error}
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">아이디 또는 이메일</label>
+                      <input
+                        type="text"
+                        required
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                        placeholder="아이디 또는 email@company.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">비밀번호</label>
+                      <input
+                        type="password"
+                        required
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                        placeholder="비밀번호 입력"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-lg shadow-indigo-200 disabled:opacity-50"
+                  >
+                    {loading ? '인증 중...' : '로그인'}
+                  </button>
+                </form>
+              )}
+              
+              <div className="mt-6 flex items-center justify-between">
+                <p className="text-xs text-gray-400">
+                  최초 로그인 시 비밀번호 변경 요망
+                </p>
+                <button 
+                  onClick={() => handleSeedMasterAdmin(false)}
+                  className="text-xs text-indigo-400 hover:text-indigo-600 flex items-center gap-1.5 px-2 py-1 hover:bg-indigo-50 rounded-lg transition-all font-medium"
+                  title="마스터 계정 초기화"
+                >
+                  <Settings className="w-4 h-4" />
+                  마스터 설정
+                </button>
+              </div>
+            </>
           )}
-          
-          <div className="mt-6 flex items-center justify-between">
-            <p className="text-xs text-gray-400">
-              최초 로그인 시 비밀번호 변경 요망
-            </p>
-            <button 
-              onClick={() => handleSeedMasterAdmin(false)}
-              className="text-xs text-indigo-400 hover:text-indigo-600 flex items-center gap-1.5 px-2 py-1 hover:bg-indigo-50 rounded-lg transition-all font-medium"
-              title="마스터 계정 초기화"
-            >
-              <Settings className="w-4 h-4" />
-              마스터 설정
-            </button>
-          </div>
         </div>
       </div>
     </div>
