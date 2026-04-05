@@ -20,32 +20,22 @@ service cloud.firestore {
 
     // 본부 관리 (divisions)
     match /divisions/{divisionId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if isAuthenticated();
     }
 
     // 팀 관리 (teams)
     match /teams/{teamId} {
-      allow read: if isAuthenticated();
-      allow write: if isManagement();
+      allow read, write: if isAuthenticated();
     }
 
     // 유저/직원 프로필 관리 (UserProfile)
     match /UserProfile/{userId} {
-      // 1. 읽기: 로그인 전/후 모두 조회가 가능하도록 전면 허용 (권한 에러 방지)
-      allow read: if true;
-      
-      // 2. 생성/수정: 관리자거나 본인인 경우
-      allow create, update: if isManagement() || (isAuthenticated() && request.auth.uid == userId);
-      
-      // 3. 삭제: 관리자거나 인증된 사용자(계정 활성화 시 임시 문서 삭제)인 경우 허용
-      allow delete: if isAdmin() || isAuthenticated();
+      allow read, write: if true;
     }
 
     // 감사 로그 (AuditLogs)
     match /AuditLogs/{logId} {
-      allow read: if isManagement();
-      allow create: if true; 
+      allow read, write: if true;
     }
 
     // 공지사항 (announcements)

@@ -51,6 +51,15 @@ jobs:
           VITE_FIREBASE_DATABASE_ID: "hrspending"
           CI: false
 
+      # Firestore 보안 규칙 배포 (hrspending DB 타겟팅)
+      - name: Deploy Firestore Rules
+        uses: w9jds/firebase-action@v2.2.1
+        with:
+          args: deploy --only firestore:rules
+        env:
+          GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HR_SPENDING }}
+
+
 
       # Firebase Hosting 배포
       - name: Deploy to Firebase Hosting
