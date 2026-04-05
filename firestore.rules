@@ -4,50 +4,66 @@ service cloud.firestore {
 
     // Helper Functions
     function isAuthenticated() { return request.auth != null; }
-    function isDirector() { return isAuthenticated() && request.auth.token.role == 'DIRECTOR'; }
-    function isHRAdmin() { return isAuthenticated() && request.auth.token.role == 'HR_ADMIN'; }
-    function isHRAdminOrDirector() { return isHRAdmin() || isDirector(); }
-    function isFinance() { return isAuthenticated() && request.auth.token.role == 'FINANCE'; }
-    function isFinanceDirector() { return isAuthenticated() && request.auth.token.role == 'FINANCE_DIRECTOR'; }
+    
+    // Firestore 문서의 role 필드를 조회하여 권한을 확인합니다.
+    function getRole() { 
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role; 
+    }
+    
+    function isAdmin() { return isAuthenticated() && getRole() == 'ADMIN'; }
+    function isSubAdmin() { return isAuthenticated() && getRole() == 'SUB_ADMIN'; }
+    function isManagement() { return isAdmin() || isSubAdmin(); }
 
-    // 기존 컬렉션들 (Divisions, Teams, UserProfile, Attendance, LeaveRequests, ExpenseRequests)
-    match /Divisions/{divisionId} { allow read: if isAuthenticated(); allow write: if isHRAdminOrDirector(); }
-    match /Teams/{teamId} { allow read: if isAuthenticated(); allow write: if isHRAdminOrDirector(); }
-    match /UserProfile/{userId} {
+    // 컬렉션 규칙 (소문자로 통일)
+    
+    // 본부 관리 (divisions)
+    match /divisions/{divisionId} {
       allow read: if isAuthenticated();
-      allow write: if isHRAdminOrDirector() || request.auth.uid == userId;
+      allow write: if isAdmin(); // 본부 생성/삭제는 최고 관리자만
     }
-    match /Attendance/{recordId} {
+
+    // 팀 관리 (teams)
+    match /teams/{teamId} {
       allow read: if isAuthenticated();
-      allow create, update: if isAuthenticated() && (request.auth.uid == request.resource.data.userId || isHRAdminOrDirector());
-      allow delete: if isHRAdminOrDirector();
+      allow write: if isManagement(); // 팀 생성/수정은 (최고/부) 관리자 가능
     }
-    match /LeaveRequests/{requestId} {
+
+    // 유저 관리 (users)
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isManagement() || request.auth.uid == userId;
+      allow delete: if isAdmin();
+    }
+
+    // 근태 기록 (attendance)
+    match /attendance/{recordId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated() && (request.auth.uid == request.resource.data.userId || isManagement());
+      allow delete: if isManagement();
+    }
+
+    // 휴가 신청 (leave_requests)
+    match /leave_requests/{requestId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
-      allow update: if isAuthenticated(); 
-      allow delete: if isHRAdminOrDirector();
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.userId || isManagement());
+      allow delete: if isManagement();
     }
-    match /ExpenseRequests/{expenseId} {
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isFinance() || isFinanceDirector() || isDirector());
+
+    // 지출 결의 (expense_requests)
+    match /expense_requests/{expenseId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isManagement());
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
-      allow update: if isAuthenticated() && (request.auth.uid == resource.data.userId || isFinance() || isFinanceDirector() || isDirector());
-      allow delete: if isDirector();
+      allow update: if isAuthenticated() && (request.auth.uid == resource.data.userId || isManagement());
+      allow delete: if isAdmin();
     }
 
-    // NEW: 알람 및 사내 공지 (Notifications)
-    match /Notifications/{notificationId} {
-      // 모든 직원이 전체 알람 및 공지 조회 허용
+    // 알람 및 공지 (notifications)
+    match /notifications/{notificationId} {
       allow read: if isAuthenticated();
-
-      // 생성 ও 삭제는 대표이사 또는 인사담당자 가능
-      allow create, delete: if isHRAdminOrDirector();
-
-      // 업데이트(수정) 권한 구분:
-      // 1. 관리자는 전체 내용을 수정할 수 있음.
-      // 2. 일반 직원은 오직 `readBy` 배열에 본인의 uid 요소를 추가(arrayUnion)하는 읽음 처리 업데이트만 가능하도록 허가.
+      allow create, delete: if isManagement();
       allow update: if isAuthenticated() && (
-        isHRAdminOrDirector() || 
+        isManagement() || 
         (
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']) &&
           request.resource.data.readBy.hasAll([request.auth.uid])
