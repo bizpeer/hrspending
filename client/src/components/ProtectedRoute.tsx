@@ -20,13 +20,20 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <div className="flex h-screen items-center justify-center">Loading...</div>;
   }
 
-  if (!user || !userData) {
-    // 팝업 로그인을 위해 홈으로 리다이렉트하고 모달을 켭니다.
-    // useEffect를 사용하여 렌더링 후 모달을 열도록 처리할 수도 있지만, 
-    // 여기서는 간단히 홈으로 보낸 후 사용자가 대시보드 클릭 시 모달이 뜨게 유도합니다.
-    // 혹은 바로 모달을 열고 싶다면 아래처럼 처리 가능합니다.
+  if (!user) {
+    // 아예 로그인이 안 된 경우 (Auth 없음)
     setTimeout(() => setLoginModalOpen(true), 100);
     return <Navigate to="/" state={{ from: location }} replace />;
+  }
+
+  if (!userData) {
+    // 로그인은 되었으나 Firestore 프로필(userData)이 아직 없거나 로드되지 않음
+    // 이 상태에서 관리자 전용 페이지를 요청하면 대시보드로 보냅니다.
+    if (requireAdmin || requireMasterAdmin) {
+      return <Navigate to="/dashboard" replace />;
+    }
+    // 일반 보호 페이지면 일단 진입 허용 (컴포넌트 내 예외 처리 필요)
+    return <>{children}</>;
   }
 
   if (requireMasterAdmin && userData.role !== 'ADMIN') {

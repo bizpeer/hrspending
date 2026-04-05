@@ -50,32 +50,38 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   initAuth: () => {
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      console.log("[Auth] State Change:", user ? `Logged in (${user.email})` : "Logged out");
+      
       if (user) {
         set({ user, loading: true });
         try {
           const userDoc = await getDoc(doc(db, 'users', user.uid));
+          console.log("[Auth] Firestore Doc exists:", userDoc.exists());
           
           if (userDoc.exists()) {
             set({ userData: userDoc.data() as UserData, loading: false });
           } else {
-            // [권한 복구 로직] bizpeer 계정인데 Firestore 문서가 없는 경우 자동 생성
-            if (user.email === 'bizpeer@internal.com') {
+            // [권한 복구 로직] bizpeer 계정인데 Firestore 문서가 없는 경우 자동 생성 (대소문자 무시)
+            const isMaster = user.email?.toLowerCase().trim() === 'bizpeer@internal.com';
+            console.log("[Auth] Master Detection:", isMaster);
+
+            if (isMaster) {
               const newAdminData: UserData = {
                 uid: user.uid,
-                email: user.email,
-                name: '최고 관리자 (복구됨)',
+                email: user.email || 'bizpeer@internal.com',
+                name: '최고 관리자 (자동복원)',
                 role: 'ADMIN',
                 teamHistory: []
               };
               await setDoc(doc(db, 'users', user.uid), newAdminData);
               set({ userData: newAdminData, loading: false });
-              console.log("Master Admin profile recovered automatically.");
+              console.log("[Auth] Master profile RECOVERED.");
             } else {
               set({ userData: null, loading: false });
             }
           }
         } catch (error) {
-          console.error("Failed to fetch user data", error);
+          console.error("[Auth] Error fetching doc:", error);
           set({ userData: null, loading: false });
         }
       } else {
