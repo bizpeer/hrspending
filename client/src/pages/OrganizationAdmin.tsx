@@ -24,6 +24,7 @@ interface Employee {
   teamId?: string;
   role: string;
   teamHistory: any[];
+  joinDate?: string;
 }
 
 export const OrganizationAdmin: React.FC = () => {
@@ -46,7 +47,11 @@ export const OrganizationAdmin: React.FC = () => {
   const [newDivName, setNewDivName] = useState('');
   const [newTeamDivId, setNewTeamDivId] = useState('');
   const [newTeamName, setNewTeamName] = useState('');
-  const [newEmp, setNewEmp] = useState({ name: '', email: '', teamId: '' });
+  const [newEmp, setNewEmp] = useState({ name: '', email: '', teamId: '', joinDate: new Date().toISOString().split('T')[0] });
+
+  // 정보 수정용 (임명/이동)
+  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // Firestore 데이터 실시간 구독
   useEffect(() => {
@@ -120,14 +125,59 @@ export const OrganizationAdmin: React.FC = () => {
         role: 'EMPLOYEE',
         teamId: newEmp.teamId || '',
         teamHistory: [],
+        joinDate: newEmp.joinDate,
         createdAt: new Date().toISOString()
       });
       
       alert(`[안내] 신규 직원 데이터가 등록되었습니다.\n아이디: ${newEmp.email}\n(서버 등록 형식: ${finalEmail})\n(실제 로그인을 위해서는 해당 아이디로 가입 절차가 필요합니다.)`);
       setShowEmployeeModal(false);
-      setNewEmp({ name: '', email: '', teamId: '' });
+      setNewEmp({ name: '', email: '', teamId: '', joinDate: new Date().toISOString().split('T')[0] });
     } catch (err) {
       alert("직원 등록 실패: " + (err as Error).message);
+    }
+  };
+
+  const handleUpdateRole = async (emp: Employee, newTeamId: string, newRole: string) => {
+    try {
+      const userRef = doc(db, 'users', emp.uid);
+      const teamName = teams.find(t => t.id === newTeamId)?.name || '미배정';
+      
+      const newHistory = [...(emp.teamHistory || []), {
+        teamId: newTeamId,
+        teamName,
+        joinedAt: new Date().toISOString(),
+        role: newRole
+      }];
+
+      await setDoc(userRef, {
+        ...emp,
+        teamId: newTeamId,
+        role: newRole,
+        teamHistory: newHistory
+      }, { merge: true });
+
+      alert(`${emp.name}님의 소속/역할이 변경되었습니다.`);
+      setShowEditModal(false);
+    } catch (err) {
+      alert("변경 실패: " + (err as Error).message);
+    }
+  };
+
+  const handleAppointHead = async (divisionId: string, userId: string) => {
+    try {
+      await setDoc(doc(db, 'divisions', divisionId), { headId: userId }, { merge: true });
+      alert("본부장이 임명되었습니다.");
+    } catch (err) {
+      alert("임명 실패: " + (err as Error).message);
+    }
+  };
+
+  const handleAppointLeader = async (teamId: string, userId: string) => {
+    try {
+      await setDoc(doc(db, 'teams', teamId), { leaderId: userId }, { merge: true });
+      alert("팀장이 임명되었습니다.");
+    } catch (err) {
+      alert("임명 실패: " + (err as Error).message);
     }
   };
 
@@ -216,16 +266,32 @@ export const OrganizationAdmin: React.FC = () => {
                     ? 'bg-indigo-50 border-indigo-400 shadow-md ring-2 ring-indigo-100' 
                     : 'border-gray-100 hover:border-indigo-200 bg-white hover:shadow-sm'}`}
               >
-                <div className="flex justify-between items-center text-sm">
-                  <div className="flex items-center gap-2">
-                    <Building className={`w-4 h-4 ${selectedDivision === div.id ? 'text-indigo-600' : 'text-gray-400'}`} />
-                    <span className={`font-bold ${selectedDivision === div.id ? 'text-indigo-900' : 'text-gray-700'}`}>{div.name}</span>
+                <div className="flex flex-col gap-2">
+                  <div className="flex justify-between items-center text-sm">
+                    <div className="flex items-center gap-2">
+                      <Building className={`w-4 h-4 ${selectedDivision === div.id ? 'text-indigo-600' : 'text-gray-400'}`} />
+                      <span className={`font-bold ${selectedDivision === div.id ? 'text-indigo-900' : 'text-gray-700'}`}>{div.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Trash2 
+                        className="w-4 h-4 text-gray-300 hover:text-red-500 transition-colors"
+                        onClick={(e) => { e.stopPropagation(); handleDeleteDivision(div.id, div.name); }}
+                      />
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Trash2 
-                      className="w-4 h-4 text-gray-300 hover:text-red-500 transition-colors"
-                      onClick={(e) => { e.stopPropagation(); handleDeleteDivision(div.id, div.name); }}
-                    />
+                     <span className="text-[10px] text-gray-500 font-medium">본부장:</span>
+                     <select 
+                      className="text-[10px] bg-transparent border-none focus:ring-0 p-0 text-indigo-600 font-bold cursor-pointer"
+                      value={div.headId || ''}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => handleAppointHead(div.id, e.target.value)}
+                     >
+                       <option value="">미임명</option>
+                       {employees.map(emp => (
+                         <option key={emp.uid} value={emp.uid}>{emp.name}</option>
+                       ))}
+                     </select>
                   </div>
                 </div>
               </li>
@@ -268,14 +334,30 @@ export const OrganizationAdmin: React.FC = () => {
                   </div>
                   
                   <div className="bg-gray-50 rounded-xl p-4">
-                    <h4 className="text-xs font-bold text-gray-500 mb-3 uppercase flex justify-between">
-                      소속 직원 <span>{getEmployeesInTeam(team.id).length}명</span>
-                    </h4>
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="text-xs font-bold text-gray-500 uppercase">
+                        소속 직원 <span>({getEmployeesInTeam(team.id).length}명)</span>
+                      </h4>
+                      <select 
+                        className="text-[10px] bg-transparent border-none focus:ring-0 p-0 text-emerald-600 font-bold cursor-pointer"
+                        value={team.leaderId || ''}
+                        onChange={(e) => handleAppointLeader(team.id, e.target.value)}
+                      >
+                        <option value="">팀장 선택</option>
+                        {getEmployeesInTeam(team.id).map(emp => (
+                          <option key={emp.uid} value={emp.uid}>{emp.name}</option>
+                        ))}
+                      </select>
+                    </div>
                     {getEmployeesInTeam(team.id).length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {getEmployeesInTeam(team.id).map(emp => (
-                          <div key={emp.uid} className="text-xs font-medium bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-full shadow-sm">
-                            {emp.name}
+                          <div 
+                            key={emp.uid} 
+                            onClick={() => { setEditingEmployee(emp); setShowEditModal(true); }}
+                            className="text-xs font-medium bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-full shadow-sm hover:border-indigo-400 cursor-pointer transition-colors"
+                          >
+                            {emp.name} {team.leaderId === emp.uid && <span className="text-[10px] text-emerald-600 ml-1">(팀장)</span>}
                           </div>
                         ))}
                       </div>
@@ -380,22 +462,74 @@ export const OrganizationAdmin: React.FC = () => {
                   <input type="text" required value={newEmp.name} onChange={(e) => setNewEmp({...newEmp, name: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none" />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-gray-700 mb-1.5">팀 배정</label>
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5">입사일</label>
+                  <input type="date" required value={newEmp.joinDate} onChange={(e) => setNewEmp({...newEmp, joinDate: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5">아이디 (ID)</label>
+                  <input type="text" placeholder="예: user123" required value={newEmp.email} onChange={(e) => setNewEmp({...newEmp, email: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1.5">초기 팀 배정</label>
                   <select value={newEmp.teamId} onChange={(e) => setNewEmp({...newEmp, teamId: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none">
                     <option value="">-- 미지정 --</option>
                     {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">아이디 (ID)</label>
-                <input type="text" placeholder="예: user123" required value={newEmp.email} onChange={(e) => setNewEmp({...newEmp, email: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none" />
-              </div>
               <div className="pt-6 flex gap-3 border-t">
                 <button type="button" onClick={() => setShowEmployeeModal(false)} className="flex-1 px-4 py-3 text-gray-500 font-bold bg-gray-100 rounded-xl">취소</button>
                 <button type="submit" className="flex-1 px-4 py-3 text-white font-bold bg-indigo-600 rounded-xl shadow-lg">DB 등록</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* 직원 수정(이동/임명) 모달 */}
+      {showEditModal && editingEmployee && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm">
+            <h2 className="text-2xl font-bold mb-6 text-gray-800">인사 정보 수정</h2>
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">대상: {editingEmployee.name}</label>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">팀 변경</label>
+                <select 
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none"
+                  value={editingEmployee.teamId || ''}
+                  onChange={(e) => setEditingEmployee({ ...editingEmployee, teamId: e.target.value })}
+                >
+                  <option value="">미배정</option>
+                  {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">역할(Role) 변경</label>
+                <select 
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none"
+                  value={editingEmployee.role}
+                  onChange={(e) => setEditingEmployee({ ...editingEmployee, role: e.target.value })}
+                >
+                  <option value="EMPLOYEE">직원 (EMPLOYEE)</option>
+                  <option value="SUB_ADMIN">부관리자 (SUB_ADMIN)</option>
+                  <option value="ADMIN">관리자 (ADMIN)</option>
+                </select>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setShowEditModal(false)} className="flex-1 px-4 py-3 text-gray-500 font-bold bg-gray-100 rounded-xl">취소</button>
+                <button 
+                  onClick={() => handleUpdateRole(editingEmployee, editingEmployee.teamId || '', editingEmployee.role)} 
+                  className="flex-1 px-4 py-3 text-white font-bold bg-indigo-600 rounded-xl"
+                >
+                  저장
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -12,6 +12,7 @@ import { AdminSettings } from './pages/AdminSettings';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginModal } from './components/LoginModal';
 import { useAuthStore } from './store/authStore';
+import { LeaveApplication } from './pages/LeaveApplication';
 import { LoadingSplash } from './components/LoadingSplash';
 
 function App() {
@@ -60,7 +61,7 @@ function App() {
                 <Route path="/" element={<AttendanceDashboard />} />
                 <Route path="/dashboard" element={<AttendanceDashboard />} />
                 
-                <Route path="/leave" element={<ProtectedRoute><div className="p-8">내 휴가 및 근태 신청 폼 (개발 중)</div></ProtectedRoute>} />
+                <Route path="/leave" element={<ProtectedRoute><LeaveApplication /></ProtectedRoute>} />
                 <Route path="/expense" element={<ProtectedRoute><ExpenseForm /></ProtectedRoute>} />
                 <Route path="/board" element={<ProtectedRoute><NoticeBoard userRole={userData?.role || 'EMPLOYEE'} currentUserId={userData?.uid || ''} /></ProtectedRoute>} />
 

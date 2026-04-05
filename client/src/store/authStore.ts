@@ -20,6 +20,9 @@ export interface UserData {
   role: Role;
   teamId?: string;
   teamHistory?: TeamHistory[];
+  joinDate?: string; // 입사일 (YYYY-MM-DD)
+  annualLeaveTotal?: number; // 총 발생 연차
+  usedLeave?: number; // 사용한 연차
 }
 
 interface AuthState {
