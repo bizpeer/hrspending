@@ -114,7 +114,7 @@ export const LoginModal: React.FC = () => {
       let msg = err.message;
       if (err.code === 'auth/invalid-email') msg = "유효하지 않은 이메일 형식입니다.";
       if (err.code === 'auth/email-already-in-use') msg = "이미 활성화된 계정입니다. 일반 로그인을 시도하세요.";
-      if (err.code === 'permission-denied') msg = "데이터 조회 권한이 없습니다. (보안 규칙 확인 필요)";
+      if (err.code === 'permission-denied') msg = "서버 접근 권한이 서버 보안 규칙에 의해 거부되었습니다. (쓰기/읽기 권한 일시적 오류)";
       
       setError(msg);
       console.error("Auto-registration failed:", err);
