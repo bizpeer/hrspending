@@ -124,6 +124,14 @@ export const LoginModal: React.FC = () => {
     try {
       await signInWithEmailAndPassword(auth, loginEmail, password);
     } catch (err: any) {
+      // Permission Denied 발생 시 보안 규칙 문제일 수 있으므로 로그 출력
+      if (err.code === 'permission-denied') {
+        console.error("Critical Permission Denied - check firestore.rules for UserProfile list access.");
+        setError('시스템 권한 설정 문제로 인해 본인 인증을 수행할 수 없습니다. 관리자에게 문의해 주세요.');
+        setLoading(false);
+        return;
+      }
+      
       // 계정 없음 에러 발생 시 자동 가입 시도 (사전 등록된 직원 모델용)
       if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
         console.log("Account not found in Auth. Checking DB for pre-registration...");

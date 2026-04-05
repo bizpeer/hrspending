@@ -29,9 +29,14 @@ service cloud.firestore {
 
     // 유저/직원 프로필 관리 (UserProfile)
     match /UserProfile/{userId} {
-      allow read: if isAuthenticated();
-      allow create, update: if isManagement() || request.auth.uid == userId;
-      allow delete: if isAdmin();
+      // 1. 읽기: 로그인했거나, 계정 활성화를 위해 1건만 조회하는 경우 허용
+      allow read: if isAuthenticated() || (request.query.limit <= 1);
+      
+      // 2. 생성/수정: 관리자거나 본인인 경우
+      allow create, update: if isManagement() || (isAuthenticated() && request.auth.uid == userId);
+      
+      // 3. 삭제: 관리자거나, 계정 활성화 직후 자신의 임시 데이터를 지우는 경우 (이메일 일치 확인)
+      allow delete: if isAdmin() || (isAuthenticated() && request.auth.token.email == resource.data.email);
     }
 
     // 감사 로그 (AuditLogs)
