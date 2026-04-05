@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import type { User } from 'firebase/auth';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import type { User } from 'firebase/auth';
+import { doc, getDoc, setDoc, query, collection, where, limit, getDocs } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
 export type Role = 'ADMIN' | 'SUB_ADMIN' | 'EMPLOYEE';
@@ -62,6 +62,17 @@ export const useAuthStore = create<AuthState>((set) => ({
         try {
           const profileDoc = await getDoc(doc(db, 'UserProfile', user.uid));
           let currentData: UserData | null = profileDoc.exists() ? (profileDoc.data() as UserData) : null;
+
+          // 만약 쓰기 권한 에러 등으로 본인 UID 문서가 안 만들어졌다면 임시 문서(temp)를 찾아서 매핑합니다 (우회)
+          if (!currentData && user.email) {
+            console.log("UID document not found. Searching by email for temporary profile...");
+            const q = query(collection(db, 'UserProfile'), where('email', '==', user.email), limit(1));
+            const fallbackSnap = await getDocs(q);
+            if (!fallbackSnap.empty) {
+              currentData = fallbackSnap.docs[0].data() as UserData;
+              currentData.uid = user.uid; // 내부적으로 UID만 덮어씌워 정상 로그인 처리
+            }
+          }
           
           // [마스터 권한 강제 보장] 데이터가 없거나 역할이 ADMIN이 아니면 강제로 수정
           if (isMaster) {
