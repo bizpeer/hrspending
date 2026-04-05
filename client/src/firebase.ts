@@ -30,5 +30,5 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 // Initialize Cloud Firestore and get a reference to the service
-// Firebase 기본(default) 데이터베이스를 명시적으로 사용합니다. (기존 조직 및 사용자 데이터 유지/복구)
-export const db = getFirestore(app);
+// 사용자의 요청에 따라 명시적으로 'hrspending' 데이터베이스를 지정합니다.
+export const db = getFirestore(app, 'hrspending');

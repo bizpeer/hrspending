@@ -13,9 +13,12 @@
       }
     ]
   },
-  "firestore": {
-    "rules": "firestore.rules"
-  }
+  "firestore": [
+    {
+      "database": "hrspending",
+      "rules": "firestore.rules"
+    }
+  ]
 }
 
 
