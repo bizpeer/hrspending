@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app"; // Firebase 앱 초기화 및 구성 로드
+import { initializeApp } from "firebase/app"; // Firebase 연동을 위한 전역 초기화 (Secrets 적용됨)
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
