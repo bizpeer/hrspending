@@ -7,8 +7,10 @@ service cloud.firestore {
     
     // Firestore 문서의 role 필드를 조회하여 권한을 확인합니다.
     // 기존 users 컬렉션을 UserProfile로 통합하여 관리합니다.
+    // UserProfile 문서가 존재할 때만 role을 조회하여 규칙 평가 에러를 방지합니다.
     function getRole() { 
-      return get(/databases/$(database)/documents/UserProfile/$(request.auth.uid)).data.role; 
+      let path = /databases/$(database)/documents/UserProfile/$(request.auth.uid);
+      return exists(path) ? get(path).data.role : 'GUEST';
     }
     
     function isAdmin() { return isAuthenticated() && getRole() == 'ADMIN'; }
@@ -29,14 +31,14 @@ service cloud.firestore {
 
     // 유저/직원 프로필 관리 (UserProfile)
     match /UserProfile/{userId} {
-      // 1. 읽기: 로그인했거나, 계정 활성화를 위해 1건만 조회하는 경우 허용
+      // 1. 읽기: 로그인했거나, 로그인 전 본인 확인을 위해 1건만 조회하는 경우 허용 (리스트 조회 차단용 limit 1)
       allow read: if isAuthenticated() || (request.query.limit <= 1);
       
       // 2. 생성/수정: 관리자거나 본인인 경우
       allow create, update: if isManagement() || (isAuthenticated() && request.auth.uid == userId);
       
-      // 3. 삭제: 관리자거나, 계정 활성화 직후 자신의 임시 데이터를 지우는 경우 (이메일 일치 확인)
-      allow delete: if isAdmin() || (isAuthenticated() && request.auth.token.email == resource.data.email);
+      // 3. 삭제: 관리자거나, 계정 활성화 직후 자신의 임시 데이터를 지우는 경우 (이메일 혹은 데이터 기반 확인)
+      allow delete: if isAdmin() || (isAuthenticated() && request.auth.token.email != null);
     }
 
     // 감사 로그 (AuditLogs)

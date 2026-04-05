@@ -64,46 +64,76 @@ export const LoginModal: React.FC = () => {
   if (!isLoginModalOpen) return null;
 
   // 자동 계정 생성 로직 (관리자 사전 등록 직원)
-  const handleAutoRegistration = async (loginEmail: string, loginPass: string) => {
+  const handleAutoRegistration = async (rawInput: string, loginPass: string) => {
     setAuthStatus('RECOVERING');
+    setError('');
+    
     try {
-      // 1. UserProfile에서 해당 이메일의 유저 검색 (이미 소문자화됨)
-      const q = query(collection(db, 'UserProfile'), where('email', '==', loginEmail), limit(1));
-      const snaps = await getDocs(q);
+      const normalizedInput = rawInput.trim().toLowerCase();
+      let targetUserDoc: any = null;
+      let targetEmailValue = normalizedInput;
 
-      if (snaps.empty) {
-        throw new Error("가입되지 않은 이메일입니다. 관리자에게 문의하세요.");
+      // 1. 입력된 값 그대로(ID 형태 - tkl0303 등) 검색 시도
+      console.log("Searching user by raw input:", normalizedInput);
+      const q1 = query(collection(db, 'UserProfile'), where('email', '==', normalizedInput), limit(1));
+      const snap1 = await getDocs(q1);
+
+      if (!snap1.empty) {
+        targetUserDoc = snap1.docs[0];
+        targetEmailValue = snap1.docs[0].data().email;
+      } else if (!normalizedInput.includes('@')) {
+        // 2. 도메인을 붙여서 다시 검색 시도 (기본 도메인 대응)
+        const emailWithDomain = `${normalizedInput}@internal.com`;
+        console.log("Not found. Searching with domain:", emailWithDomain);
+        const q2 = query(collection(db, 'UserProfile'), where('email', '==', emailWithDomain), limit(1));
+        const snap2 = await getDocs(q2);
+        if (!snap2.empty) {
+          targetUserDoc = snap2.docs[0];
+          targetEmailValue = emailWithDomain;
+        }
       }
 
-      const preRegisteredUser = snaps.docs[0].data();
-      const oldDocId = snaps.docs[0].id;
+      if (!targetUserDoc) {
+        throw new Error("관리자에 의해 등록되지 않은 아이디입니다. 등록 정보를 확인해 주세요.");
+      }
 
-      // 2. 초기 비밀번호가 123456인지 확인 (보안)
+      const preRegisteredUser = targetUserDoc.data();
+      const oldDocId = targetUserDoc.id;
+
+      // 3. 초기 비밀번호가 123456인지 확인 (보안)
       if (loginPass !== '123456') {
-        throw new Error("계정 활성화를 위해 초기 비밀번호(123456)를 입력해주세요.");
+        throw new Error("보안을 위해 초기 비밀번호(123456)로 로그인하여 계정을 활성화해야 합니다.");
       }
 
-      // 3. Firebase Auth 계정 생성
-      const userCredential = await createUserWithEmailAndPassword(auth, loginEmail, loginPass);
+      // 4. Firebase Auth 계정 생성 (반드시 유효한 이메일 형식 필요)
+      const signupEmail = targetEmailValue.includes('@') ? targetEmailValue : `${targetEmailValue}@internal.com`;
+      console.log("Creating auth account for:", signupEmail);
+      
+      const userCredential = await createUserWithEmailAndPassword(auth, signupEmail, loginPass);
       const newUid = userCredential.user.uid;
 
-      // 4. 데이터 이전 (임시 문서 -> 실제 UID 문서)
+      // 5. 데이터 이전 (임시 문서 -> 실제 UID 문서)
       await setDoc(doc(db, 'UserProfile', newUid), {
         ...preRegisteredUser,
         uid: newUid,
-        email: loginEmail, // 확실히 소문자로 저장
+        email: signupEmail, // 최종 이메일 주소로 저장
         mustChangePassword: true,
         activatedAt: new Date().toISOString()
       });
 
-      // 5. 이전 임시 문서 삭제 (ID가 실제 UID와 다를 경우만)
+      // 6. 이전 임시 문서 삭제 (ID가 실제 UID와 다를 경우만)
       if (oldDocId !== newUid) {
         await deleteDoc(doc(db, 'UserProfile', oldDocId));
       }
 
-      console.log("Auto-registration success for:", loginEmail);
+      console.log("Auto-registration success for UID:", newUid);
     } catch (err: any) {
-      setError(err.message);
+      let msg = err.message;
+      if (err.code === 'auth/invalid-email') msg = "유효하지 않은 이메일 형식입니다.";
+      if (err.code === 'auth/email-already-in-use') msg = "이미 활성화된 계정입니다. 일반 로그인을 시도하세요.";
+      if (err.code === 'permission-denied') msg = "데이터 조회 권한이 없습니다. (보안 규칙 확인 필요)";
+      
+      setError(msg);
       console.error("Auto-registration failed:", err);
       setLoading(false);
     } finally {
@@ -116,41 +146,22 @@ export const LoginModal: React.FC = () => {
     setError('');
     setLoading(true);
 
-    let loginEmail = email.trim().toLowerCase(); // 소문자 표준화
-    if (!loginEmail.includes('@')) {
-      loginEmail = `${loginEmail}@internal.com`;
+    const loginInput = email.trim().toLowerCase();
+    
+    // Auth 인증용 이메일 결정
+    let authEmail = loginInput;
+    if (!loginInput.includes('@')) {
+      authEmail = `${loginInput}@internal.com`;
     }
 
     try {
-      await signInWithEmailAndPassword(auth, loginEmail, password);
-      
-      // 로그인 성공 시 로딩 해제 (비밀번호 변경이 필요 없는 경우 모달 닫기)
+      await signInWithEmailAndPassword(auth, authEmail, password);
       setLoading(false);
-      const user = auth.currentUser;
-      if (user) {
-        setTimeout(() => {
-          const currentData = useAuthStore.getState().userData;
-          if (currentData && !currentData.mustChangePassword) {
-            setLoginModalOpen(false);
-          }
-        }, 500);
-      }
+      // mustChangePassword 감시는 useEffect에서 처리
     } catch (err: any) {
-      if (err.code === 'permission-denied') {
-        console.error("Critical Permission Denied - check firestore.rules for UserProfile list access.");
-        setError('시스템 권한 설정 문제로 인해 본인 인증을 수행할 수 없습니다. 관리자에게 문의해 주세요.');
-        setLoading(false);
-        return;
-      }
-      
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-        console.log("Account not found in Auth. Checking DB for pre-registration...");
-        await handleAutoRegistration(loginEmail, password);
-      } else {
-        setError('로그인 실패: 아이디 혹은 비밀번호를 확인해 주세요.');
-        console.error(err);
-        setLoading(false);
-      }
+      // 계정 없음 혹은 인증 실패 시 자동 활성화 프로세스 시도
+      console.log("Login failed, attempting account activation flow...");
+      await handleAutoRegistration(loginInput, password);
     }
   };
 
