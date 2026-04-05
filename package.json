@@ -1,0 +1,12 @@
+{
+  "name": "hr-management-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "client:dev": "npm --prefix client run dev",
+    "client:build": "npm --prefix client run build",
+    "server:dev": "npm --prefix server run dev",
+    "deploy": "npm run client:build && firebase deploy",
+    "emulators": "firebase emulators:start"
+  }
+}
