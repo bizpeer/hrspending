@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { PlusCircle, Users, ShieldAlert, UserPlus, ArrowRightLeft, Trash2, Loader2, Building } from 'lucide-react';
+import { 
+  PlusCircle, Users, ShieldAlert, UserPlus, ArrowRightLeft, 
+  Trash2, Loader2, Building, X 
+} from 'lucide-react';
 import { collection, onSnapshot, addDoc, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
@@ -27,6 +30,16 @@ interface Employee {
   joinDate?: string;
 }
 
+interface AuditLog {
+  id: string;
+  timestamp: string;
+  actionType: string;
+  performedBy: string;
+  targetId: string;
+  targetName: string;
+  details: string;
+}
+
 export const OrganizationAdmin: React.FC = () => {
   const { userData } = useAuthStore();
   const isMasterAdmin = userData?.role === 'ADMIN';
@@ -34,6 +47,7 @@ export const OrganizationAdmin: React.FC = () => {
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
@@ -66,13 +80,35 @@ export const OrganizationAdmin: React.FC = () => {
       setEmployees(snap.docs.map(d => ({ uid: d.id, ...d.data() } as Employee)));
       setLoading(false);
     });
+    // 감사 로그 구독 (최근 50개)
+    const unsubLogs = onSnapshot(collection(db, 'AuditLogs'), (snap) => {
+      const logs = snap.docs.map(d => ({ id: d.id, ...d.data() } as AuditLog));
+      setAuditLogs(logs.sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 50));
+    });
 
     return () => {
       unsubDivs();
       unsubTeams();
       unsubUsers();
+      unsubLogs();
     };
   }, []);
+
+  // 감사 로그 저장 유틸리티
+  const logAction = async (type: string, targetId: string, targetName: string, details: string) => {
+    try {
+      await addDoc(collection(db, 'AuditLogs'), {
+        timestamp: new Date().toISOString(),
+        actionType: type,
+        performedBy: userData?.name || '시스템',
+        targetId,
+        targetName,
+        details
+      });
+    } catch (err) {
+      console.error("Log failed:", err);
+    }
+  };
 
   const filteredTeams = selectedDivision
     ? teams.filter((team) => team.divisionId === selectedDivision)
@@ -82,10 +118,11 @@ export const OrganizationAdmin: React.FC = () => {
     e.preventDefault();
     if (!newDivName.trim()) return;
     try {
-      await addDoc(collection(db, 'divisions'), {
+      const docRef = await addDoc(collection(db, 'divisions'), {
         name: newDivName,
         headId: ''
       });
+      await logAction('CREATE_DIVISION', docRef.id, newDivName, '새 본부 생성');
       setNewDivName('');
       setShowDivisionModal(false);
     } catch (err) {
@@ -97,11 +134,13 @@ export const OrganizationAdmin: React.FC = () => {
     e.preventDefault();
     if (!newTeamName.trim() || !newTeamDivId) return;
     try {
-      await addDoc(collection(db, 'teams'), {
+      const docRef = await addDoc(collection(db, 'teams'), {
         divisionId: newTeamDivId,
         name: newTeamName,
         leaderId: ''
       });
+      const divName = divisions.find(d => d.id === newTeamDivId)?.name || '알 수 없음';
+      await logAction('CREATE_TEAM', docRef.id, newTeamName, `${divName} 소속 팀 생성`);
       setNewTeamName('');
       setNewTeamDivId('');
       setShowTeamModal(false);
@@ -129,11 +168,23 @@ export const OrganizationAdmin: React.FC = () => {
         createdAt: new Date().toISOString()
       });
       
+      await logAction('CREATE_EMPLOYEE', tempId, newEmp.name, `직원 등록 (${finalEmail})`);
       alert(`[안내] 신규 직원 데이터가 등록되었습니다.\n아이디: ${newEmp.email}\n(서버 등록 형식: ${finalEmail})\n(실제 로그인을 위해서는 해당 아이디로 가입 절차가 필요합니다.)`);
       setShowEmployeeModal(false);
       setNewEmp({ name: '', email: '', teamId: '', joinDate: new Date().toISOString().split('T')[0] });
     } catch (err) {
       alert("직원 등록 실패: " + (err as Error).message);
+    }
+  };
+
+  const handleDeleteEmployee = async (uid: string, name: string) => {
+    if (!window.confirm(`'${name}' 직원을 삭제하시겠습니까? 관련 데이터가 모두 삭제됩니다.`)) return;
+    try {
+      await deleteDoc(doc(db, 'UserProfile', uid));
+      await logAction('DELETE_EMPLOYEE', uid, name, '직원 삭제(영구)');
+      alert("삭제되었습니다.");
+    } catch (err) {
+      alert("삭제 실패: " + (err as Error).message);
     }
   };
 
@@ -151,12 +202,13 @@ export const OrganizationAdmin: React.FC = () => {
 
       await setDoc(userRef, {
         ...emp,
-        uid: emp.uid, // Explicitly keep UID
+        uid: emp.uid, 
         teamId: newTeamId,
         role: newRole,
         teamHistory: newHistory
       }, { merge: true });
 
+      await logAction('UPDATE_EMPLOYEE', emp.uid, emp.name, `${teamName} 로 이동 / 역할: ${newRole}`);
       alert(`${emp.name}님의 소속/역할이 변경되었습니다.`);
       setShowEditModal(false);
     } catch (err) {
@@ -167,6 +219,9 @@ export const OrganizationAdmin: React.FC = () => {
   const handleAppointHead = async (divisionId: string, userId: string) => {
     try {
       await setDoc(doc(db, 'divisions', divisionId), { headId: userId }, { merge: true });
+      const empName = employees.find(e => e.uid === userId)?.name || '미임명';
+      const divName = divisions.find(d => d.id === divisionId)?.name || '';
+      await logAction('APPOINT_HEAD', divisionId, divName, `본부장 임명: ${empName}`);
       alert("본부장이 임명되었습니다.");
     } catch (err) {
       alert("임명 실패: " + (err as Error).message);
@@ -176,6 +231,9 @@ export const OrganizationAdmin: React.FC = () => {
   const handleAppointLeader = async (teamId: string, userId: string) => {
     try {
       await setDoc(doc(db, 'teams', teamId), { leaderId: userId }, { merge: true });
+      const empName = employees.find(e => e.uid === userId)?.name || '미임명';
+      const teamName = teams.find(t => t.id === teamId)?.name || '';
+      await logAction('APPOINT_LEADER', teamId, teamName, `팀장 임명: ${empName}`);
       alert("팀장이 임명되었습니다.");
     } catch (err) {
       alert("임명 실패: " + (err as Error).message);
@@ -183,22 +241,34 @@ export const OrganizationAdmin: React.FC = () => {
   };
 
   const handleDeleteDivision = async (id: string, name: string) => {
+    const hasTeams = teams.some(t => t.divisionId === id);
+    if (hasTeams) {
+      alert("소속된 팀이 있는 본부는 삭제할 수 없습니다. 팀을 먼저 이동하거나 삭제하세요.");
+      return;
+    }
     if (!window.confirm(`'${name}' 본부를 삭제하시겠습니까?`)) return;
     try {
       await deleteDoc(doc(db, 'divisions', id));
+      await logAction('DELETE_DIVISION', id, name, '본부 삭제');
     } catch (err) {
       alert("삭제 실패: " + (err as Error).message);
     }
-  }
+  };
 
   const handleDeleteTeam = async (id: string, name: string) => {
+    const hasEmployees = employees.some(e => e.teamId === id);
+    if (hasEmployees) {
+      alert("이 팀에 소속된 직원이 있습니다. 직원을 먼저 이동시킨 후 삭제하세요.");
+      return;
+    }
     if (!window.confirm(`'${name}' 팀을 삭제하시겠습니까?`)) return;
     try {
       await deleteDoc(doc(db, 'teams', id));
+      await logAction('DELETE_TEAM', id, name, '팀 삭제');
     } catch (err) {
       alert("삭제 실패: " + (err as Error).message);
     }
-  }
+  };
 
   const getEmployeesInTeam = (teamId: string) => {
     return employees.filter(emp => emp.teamId === teamId);
@@ -249,7 +319,7 @@ export const OrganizationAdmin: React.FC = () => {
 
       <div className="flex w-full gap-8">
         {/* 본부 리스트 */}
-        <div className="flex-1 bg-white shadow-xl rounded-2xl border border-gray-100 p-6">
+        <div className="flex-1 bg-white shadow-xl rounded-2xl border border-gray-100 p-6 h-[fit-content]">
           <h2 className="text-lg font-bold text-gray-800 mb-6 border-b border-gray-50 pb-4 flex justify-between items-center">
             본부 (Divisions)
             <PlusCircle 
@@ -273,9 +343,9 @@ export const OrganizationAdmin: React.FC = () => {
                       <Building className={`w-4 h-4 ${selectedDivision === div.id ? 'text-indigo-600' : 'text-gray-400'}`} />
                       <span className={`font-bold ${selectedDivision === div.id ? 'text-indigo-900' : 'text-gray-700'}`}>{div.name}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 text-gray-300">
                       <Trash2 
-                        className="w-4 h-4 text-gray-300 hover:text-red-500 transition-colors"
+                        className="w-4 h-4 hover:text-red-500 transition-colors"
                         onClick={(e) => { e.stopPropagation(); handleDeleteDivision(div.id, div.name); }}
                       />
                     </div>
@@ -313,14 +383,17 @@ export const OrganizationAdmin: React.FC = () => {
               )}
               <PlusCircle 
                 className="w-6 h-6 text-emerald-500 cursor-pointer hover:scale-110 transition-transform"
-                onClick={() => setShowTeamModal(true)}
+                onClick={() => {
+                  if (selectedDivision) setNewTeamDivId(selectedDivision);
+                  setShowTeamModal(true);
+                }}
               />
             </div>
           </h2>
           {filteredTeams.length > 0 ? (
-            <ul className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {filteredTeams.map((team) => (
-                <li key={team.id} className="p-5 rounded-2xl border border-gray-100 bg-white hover:shadow-lg transition-all flex flex-col gap-4">
+                <div key={team.id} className="p-5 rounded-2xl border border-gray-200 bg-white hover:shadow-lg transition-all flex flex-col gap-4">
                   <div className="flex justify-between items-start">
                     <div>
                       <span className="font-bold text-gray-900 text-lg">{team.name}</span>
@@ -355,10 +428,15 @@ export const OrganizationAdmin: React.FC = () => {
                         {getEmployeesInTeam(team.id).map(emp => (
                           <div 
                             key={emp.uid} 
-                            onClick={() => { setEditingEmployee(emp); setShowEditModal(true); }}
-                            className="text-xs font-medium bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-full shadow-sm hover:border-indigo-400 cursor-pointer transition-colors"
+                            className="group flex items-center gap-1 text-xs font-medium bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-full shadow-sm hover:border-indigo-400 transition-colors"
                           >
-                            {emp.name} {team.leaderId === emp.uid && <span className="text-[10px] text-emerald-600 ml-1">(팀장)</span>}
+                            <span className="cursor-pointer" onClick={() => { setEditingEmployee(emp); setShowEditModal(true); }}>
+                              {emp.name} {team.leaderId === emp.uid && <span className="text-[10px] text-emerald-600 ml-1">(팀장)</span>}
+                            </span>
+                            <X 
+                              className="w-3 h-3 text-gray-300 hover:text-red-500 cursor-pointer hidden group-hover:block" 
+                              onClick={() => handleDeleteEmployee(emp.uid, emp.name)}
+                            />
                           </div>
                         ))}
                       </div>
@@ -367,19 +445,61 @@ export const OrganizationAdmin: React.FC = () => {
                     )}
                   </div>
 
-                  <button className="mt-2 text-indigo-600 text-xs font-bold flex items-center gap-1.5 hover:bg-indigo-50 p-2 rounded-lg transition-all w-fit">
+                  <button 
+                    onClick={() => { setEditingEmployee(null); /* logic to trigger some focus if needed */ }}
+                    className="mt-2 text-indigo-600 text-xs font-bold flex items-center gap-1.5 hover:bg-indigo-50 p-2 rounded-lg transition-all w-fit"
+                  >
                     <ArrowRightLeft className="w-3.5 h-3.5"/>
-                    멤버 관리 / 이동
+                    인사 이동 / 정보 수정
                   </button>
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
           ) : (
             <div className="text-center py-20 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
               <Building className="w-10 h-10 text-gray-200 mx-auto mb-3" />
               <p className="text-gray-400 text-sm">해당 조건에 등록된 팀이 없습니다.</p>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* 작업 이력 (Audit Logs) 섹션 */}
+      <div className="w-full bg-white shadow-xl rounded-2xl border border-gray-100 p-6 mt-4">
+        <h2 className="text-lg font-bold text-gray-800 mb-6 border-b border-gray-50 pb-4 flex items-center gap-2">
+          <Loader2 className="w-5 h-5 text-indigo-500" />
+          최근 작업 이력 (Audit Logs)
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-50 text-gray-500 font-bold uppercase text-[10px]">
+              <tr>
+                <th className="px-4 py-3">시간</th>
+                <th className="px-4 py-3">수행자</th>
+                <th className="px-4 py-3">분류</th>
+                <th className="px-4 py-3">대상</th>
+                <th className="px-4 py-3">상세 내용</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {auditLogs.map((log) => (
+                <tr key={log.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-3 text-gray-400 text-[11px]">
+                    {new Date(log.timestamp).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 font-semibold text-gray-700">{log.performedBy}</td>
+                  <td className="px-4 py-3 text-indigo-600 font-medium">{log.actionType}</td>
+                  <td className="px-4 py-3 text-gray-600">{log.targetName}</td>
+                  <td className="px-4 py-3 text-gray-500">{log.details}</td>
+                </tr>
+              ))}
+              {auditLogs.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="text-center py-8 text-gray-400 italic">기록된 이력이 없습니다.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -524,7 +644,7 @@ export const OrganizationAdmin: React.FC = () => {
               <div className="flex gap-3 pt-2">
                 <button onClick={() => setShowEditModal(false)} className="flex-1 px-4 py-3 text-gray-500 font-bold bg-gray-100 rounded-xl">취소</button>
                 <button 
-                  onClick={() => handleUpdateRole(editingEmployee, editingEmployee.teamId || '', editingEmployee.role)} 
+                  onClick={() => handleUpdateRole(editingEmployee!, editingEmployee?.teamId || '', editingEmployee?.role || 'EMPLOYEE')} 
                   className="flex-1 px-4 py-3 text-white font-bold bg-indigo-600 rounded-xl"
                 >
                   저장
