@@ -9,6 +9,7 @@ import { AttendanceDashboard } from './pages/AttendanceDashboard';
 import { NoticeBoard } from './pages/NoticeBoard';
 import { Login } from './pages/Login';
 import { AdminSettings } from './pages/AdminSettings';
+import { AdminApprovals } from './pages/AdminApprovals';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { LoginModal } from './components/LoginModal';
 import { useAuthStore } from './store/authStore';
@@ -66,6 +67,7 @@ function App() {
                 <Route path="/board" element={<ProtectedRoute><NoticeBoard userRole={userData?.role || 'EMPLOYEE'} currentUserId={userData?.uid || ''} /></ProtectedRoute>} />
 
                 <Route path="/admin/organization" element={<ProtectedRoute requireAdmin><OrganizationAdmin /></ProtectedRoute>} />
+                <Route path="/admin/approvals" element={<ProtectedRoute requireAdmin><AdminApprovals /></ProtectedRoute>} />
                 <Route path="/admin/finance-stats" element={<ProtectedRoute requireAdmin><ExpenseAdminDashboard /></ProtectedRoute>} />
                 <Route path="/admin/settings" element={<ProtectedRoute requireAdmin><AdminSettings /></ProtectedRoute>} />
 

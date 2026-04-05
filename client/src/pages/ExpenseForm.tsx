@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { UploadCloud, CheckCircle, FileText } from 'lucide-react';
+import { addDoc, collection } from 'firebase/firestore';
+import { db } from '../firebase';
+import { useAuthStore } from '../store/authStore';
 
 export const ExpenseForm: React.FC = () => {
+  const { userData } = useAuthStore();
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [date, setDate] = useState('');
@@ -17,11 +21,18 @@ export const ExpenseForm: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      // TODO: Firebase Storage 업로드 로직 추가 (첨부파일)
-      // const fileUrl = await uploadToStorage(selectedFile);
-      
-      // TODO: Firestore Document 생성 (ExpenseRequests)
-      // await addDoc(collection(db, 'ExpenseRequests'), { ... })
+      // Firestore Document 생성 (ExpenseRequests)
+      await addDoc(collection(db, 'ExpenseRequests'), {
+        userId: userData?.uid,
+        userName: userData?.name,
+        title,
+        amount,
+        date,
+        category,
+        description,
+        status: 'PENDING',
+        createdAt: new Date().toISOString()
+      });
       
       // API 콜 모방 딜레이
       await new Promise(resolve => setTimeout(resolve, 1000));
