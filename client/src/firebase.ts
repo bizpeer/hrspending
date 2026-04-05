@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app"; // Firebase 연동을 위한 전역 초기화 (Secrets 적용됨)
+import { initializeApp } from "firebase/app"; // Firebase 인증 및 설정 전체 복구 완료 (마스터 설정 작동 준비)
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
