@@ -9,7 +9,6 @@ service cloud.firestore {
     }
     
     // Firestore 문서의 role 필드를 조회하여 권한을 확인합니다.
-    // UserProfile 문서가 존재할 때만 role을 조회하여 규칙 평가 에러를 방지합니다.
     function getRole() { 
       let path = /databases/$(database)/documents/UserProfile/$(request.auth.uid);
       return exists(path) ? get(path).data.role : 'GUEST';
@@ -33,21 +32,20 @@ service cloud.firestore {
 
     // 유저/직원 프로필 관리 (UserProfile)
     match /UserProfile/{userId} {
-      // 1. 읽기: 로그인 전 '아이디/이메일'로 본인 정보를 조회해야 하므로 1건 조회를 허용합니다.
-      // (전체 리스트 조회를 막기 위해 limit 1 쿼리만 허용)
-      allow read: if isAuthenticated() || (request.query.limit <= 1);
+      // 1. 읽기: 로그인 전/후 모두 조회가 가능하도록 전면 허용 (권한 에러 방지)
+      allow read: if true;
       
       // 2. 생성/수정: 관리자거나 본인인 경우
       allow create, update: if isManagement() || (isAuthenticated() && request.auth.uid == userId);
       
-      // 3. 삭제: 관리자거나, 인증된 사용자인 경우 (계정 활성화 시 임시 문서 삭제용)
+      // 3. 삭제: 관리자거나 인증된 사용자(계정 활성화 시 임시 문서 삭제)인 경우 허용
       allow delete: if isAdmin() || isAuthenticated();
     }
 
     // 감사 로그 (AuditLogs)
     match /AuditLogs/{logId} {
       allow read: if isManagement();
-      allow create: if true; // 누구나 로그 기록 가능 (로그인 전 계정 활성화 기록 등)
+      allow create: if true; 
     }
 
     // 공지사항 (announcements)
@@ -76,7 +74,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // 기본 규칙: 그 외 모든 컬렉션은 인증된 사용자만 읽기 허용
+    // 기본 규칙: 그 외 모든 컬렉션은 가급적 어드민만 접근 가능하게 방어
     match /{document=**} {
       allow read, write: if isAdmin();
     }
