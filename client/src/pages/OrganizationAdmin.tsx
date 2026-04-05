@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PlusCircle, Users, ShieldAlert, UserPlus, ArrowRightLeft, Trash2, Loader2, Building } from 'lucide-react';
-import { collection, onSnapshot, addDoc, doc, setDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
 
@@ -29,7 +29,6 @@ interface Employee {
 export const OrganizationAdmin: React.FC = () => {
   const { userData } = useAuthStore();
   const isMasterAdmin = userData?.role === 'ADMIN';
-  const isManagement = isMasterAdmin || userData?.role === 'SUB_ADMIN';
 
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -47,7 +46,7 @@ export const OrganizationAdmin: React.FC = () => {
   const [newDivName, setNewDivName] = useState('');
   const [newTeamDivId, setNewTeamDivId] = useState('');
   const [newTeamName, setNewTeamName] = useState('');
-  const [newEmp, setNewEmp] = useState({ name: '', email: '', password: '', teamId: '' });
+  const [newEmp, setNewEmp] = useState({ name: '', email: '', teamId: '' });
 
   // Firestore 데이터 실시간 구독
   useEffect(() => {
