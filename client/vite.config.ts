@@ -5,6 +5,6 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  // Cloudflare Pages 등 일반 배포를 위해 base를 '/'로 다시 설정
-  base: '/',
+  // GitHub Pages, Firebase 등 다양한 환경에서의 하위 디렉토리 호환성을 위해 base를 './'로 설정
+  base: './',
 })
