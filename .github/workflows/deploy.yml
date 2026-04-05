@@ -55,9 +55,10 @@ jobs:
       - name: Deploy Firestore Rules
         uses: w9jds/firebase-action@v2.2.1
         with:
-          args: deploy --only firestore:rules
+          args: deploy --only firestore:rules --project hr-management-bz3
         env:
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_HR_SPENDING }}
+          PROJECT_ID: "hr-management-bz3"
 
       # Firebase Hosting 배포
       - name: Deploy to Firebase Hosting

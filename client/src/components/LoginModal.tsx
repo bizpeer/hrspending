@@ -70,33 +70,18 @@ export const LoginModal: React.FC = () => {
     
     try {
       const normalizedInput = rawInput.trim().toLowerCase();
-      let targetUserDoc: any = null;
-      let targetEmailValue = normalizedInput;
+      // 유저의 요청에 따라 도메인 없는 입력을 철저히 @internal.com으로 강제 변환합니다.
+      const authEmail = normalizedInput.includes('@') ? normalizedInput : `${normalizedInput}@internal.com`;
 
-      // 1. 입력된 값 그대로(ID 형태 - tkl0303 등) 검색 시도
-      console.log("Searching user by raw input:", normalizedInput);
-      const q1 = query(collection(db, 'UserProfile'), where('email', '==', normalizedInput), limit(1));
-      const snap1 = await getDocs(q1);
+      console.log("Searching user with enforced email:", authEmail);
+      const q = query(collection(db, 'UserProfile'), where('email', '==', authEmail), limit(1));
+      const snap = await getDocs(q);
 
-      if (!snap1.empty) {
-        targetUserDoc = snap1.docs[0];
-        targetEmailValue = snap1.docs[0].data().email;
-      } else if (!normalizedInput.includes('@')) {
-        // 2. 도메인을 붙여서 다시 검색 시도 (기본 도메인 대응)
-        const emailWithDomain = `${normalizedInput}@internal.com`;
-        console.log("Not found. Searching with domain:", emailWithDomain);
-        const q2 = query(collection(db, 'UserProfile'), where('email', '==', emailWithDomain), limit(1));
-        const snap2 = await getDocs(q2);
-        if (!snap2.empty) {
-          targetUserDoc = snap2.docs[0];
-          targetEmailValue = emailWithDomain;
-        }
-      }
-
-      if (!targetUserDoc) {
+      if (snap.empty) {
         throw new Error("관리자에 의해 등록되지 않은 아이디입니다. 등록 정보를 확인해 주세요.");
       }
 
+      const targetUserDoc = snap.docs[0];
       const preRegisteredUser = targetUserDoc.data();
       const oldDocId = targetUserDoc.id;
 
@@ -105,18 +90,16 @@ export const LoginModal: React.FC = () => {
         throw new Error("보안을 위해 초기 비밀번호(123456)로 로그인하여 계정을 활성화해야 합니다.");
       }
 
-      // 4. Firebase Auth 계정 생성 (반드시 유효한 이메일 형식 필요)
-      const signupEmail = targetEmailValue.includes('@') ? targetEmailValue : `${targetEmailValue}@internal.com`;
-      console.log("Creating auth account for:", signupEmail);
+      console.log("Creating auth account for:", authEmail);
       
-      const userCredential = await createUserWithEmailAndPassword(auth, signupEmail, loginPass);
+      const userCredential = await createUserWithEmailAndPassword(auth, authEmail, loginPass);
       const newUid = userCredential.user.uid;
 
       // 5. 데이터 이전 (임시 문서 -> 실제 UID 문서)
       await setDoc(doc(db, 'UserProfile', newUid), {
         ...preRegisteredUser,
         uid: newUid,
-        email: signupEmail, // 최종 이메일 주소로 저장
+        email: authEmail, // 최종 이메일 주소로 저장
         mustChangePassword: true,
         activatedAt: new Date().toISOString()
       });
@@ -148,11 +131,8 @@ export const LoginModal: React.FC = () => {
 
     const loginInput = email.trim().toLowerCase();
     
-    // Auth 인증용 이메일 결정
-    let authEmail = loginInput;
-    if (!loginInput.includes('@')) {
-      authEmail = `${loginInput}@internal.com`;
-    }
+    // Auth 인증용 이메일 결정 (모두 @internal.com 강제)
+    const authEmail = loginInput.includes('@') ? loginInput : `${loginInput}@internal.com`;
 
     try {
       await signInWithEmailAndPassword(auth, authEmail, password);
@@ -161,7 +141,7 @@ export const LoginModal: React.FC = () => {
     } catch (err: any) {
       // 계정 없음 혹은 인증 실패 시 자동 활성화 프로세스 시도
       console.log("Login failed, attempting account activation flow...");
-      await handleAutoRegistration(loginInput, password);
+      await handleAutoRegistration(authEmail, password);
     }
   };
 

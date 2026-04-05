@@ -70,27 +70,43 @@ export const OrganizationAdmin: React.FC = () => {
   // Firestore 데이터 실시간 구독
   useEffect(() => {
     setLoading(true);
+
+    const handleError = (error: any) => {
+      console.error("Firestore Subscription Error:", error);
+      setLoading(false); // 에러 발생 시 무한 로딩 방지
+    };
+
     const unsubDivs = onSnapshot(collection(db, 'divisions'), (snap) => {
       setDivisions(snap.docs.map(d => ({ id: d.id, ...d.data() } as Division)));
-    });
+      setLoading(false); // 최소 1개 콜백에서 로딩 해제
+    }, handleError);
+
     const unsubTeams = onSnapshot(collection(db, 'teams'), (snap) => {
       setTeams(snap.docs.map(d => ({ id: d.id, ...d.data() } as Team)));
-    });
+    }, handleError);
+
     const unsubUsers = onSnapshot(collection(db, 'UserProfile'), (snap) => {
       setEmployees(snap.docs.map(d => ({ uid: d.id, ...d.data() } as Employee)));
       setLoading(false);
-    });
+    }, handleError);
+
     // 감사 로그 구독 (최근 50개)
     const unsubLogs = onSnapshot(collection(db, 'AuditLogs'), (snap) => {
       const logs = snap.docs.map(d => ({ id: d.id, ...d.data() } as AuditLog));
       setAuditLogs(logs.sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 50));
-    });
+    }, handleError);
+
+    // 혹시라도 데이터를 불러오는 데 너무 오래 걸리거나 응답이 없을 경우를 대비한 안전 장치
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+    }, 3000);
 
     return () => {
       unsubDivs();
       unsubTeams();
       unsubUsers();
       unsubLogs();
+      clearTimeout(timeoutId);
     };
   }, []);
 
