@@ -30,5 +30,5 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
 // Initialize Cloud Firestore and get a reference to the service
-// 환경 변수(VITE_FIREBASE_DATABASE_ID)를 통해 명시된 데이터베이스(예: hrspending)를 우선 타겟팅하며, 없을 시 (default)로 폴백합니다.
-export const db = getFirestore(app, import.meta.env.VITE_FIREBASE_DATABASE_ID || '(default)');
+// 환경 변수에 관계없이 모든 기존 데이터가 저장되어 있는 (default) 데이터베이스를 최우선적으로 명시적 사용합니다.
+export const db = getFirestore(app);
