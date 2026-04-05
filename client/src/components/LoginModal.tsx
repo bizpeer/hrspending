@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs, query, limit } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
-import { AlertCircle, X, Settings } from 'lucide-react';
+import { AlertCircle, X, Settings, Loader2 } from 'lucide-react';
 
 export const LoginModal: React.FC = () => {
   const { isLoginModalOpen, setLoginModalOpen } = useAuthStore();
@@ -11,6 +11,32 @@ export const LoginModal: React.FC = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
+
+  // 마스터 어드민 자동 시딩 (최초 1회용)
+  useEffect(() => {
+    const checkAndSeed = async () => {
+      if (!isLoginModalOpen) return;
+      
+      try {
+        setIsInitializing(true);
+        // UserProfile 컬렉션에 데이터가 하나라도 있는지 확인
+        const q = query(collection(db, 'UserProfile'), limit(1));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+          console.log("No users found. Seeding master admin...");
+          await handleSeedMasterAdmin(true); // 자동 모드로 실행
+        }
+      } catch (err) {
+        console.error("Initialization check failed:", err);
+      } finally {
+        setIsInitializing(false);
+      }
+    };
+
+    checkAndSeed();
+  }, [isLoginModalOpen]);
 
   if (!isLoginModalOpen) return null;
 
@@ -36,13 +62,13 @@ export const LoginModal: React.FC = () => {
     }
   };
 
-  // 마스터 어드민 시딩 (최초 1회용 자동생성)
-  const handleSeedMasterAdmin = async () => {
+  // 마스터 어드민 시딩 로직
+  const handleSeedMasterAdmin = async (isAuto = false) => {
     const adminEmail = "bizpeer@internal.com";
     const adminPassword = "123456";
 
     try {
-      setLoading(true);
+      if (!isAuto) setLoading(true);
       setError('');
       const userCredential = await createUserWithEmailAndPassword(auth, adminEmail, adminPassword);
       const uid = userCredential.user.uid;
@@ -52,17 +78,24 @@ export const LoginModal: React.FC = () => {
         email: adminEmail,
         name: '최고 관리자',
         role: 'ADMIN',
-        teamHistory: []
+        teamHistory: [],
+        createdAt: new Date().toISOString()
       });
-      alert(`초기 마스터 관리자 계정이 생성되었습니다.\nID: bizpeer\nPW: ${adminPassword}`);
+      
+      if (isAuto) {
+        alert(`[시스템 초기설정 완료] 마스터 관리자 계정이 생성되었습니다.\nID: bizpeer\nPW: ${adminPassword}\n로그인 해 주세요.`);
+      } else {
+        alert(`마스터 관리자 계정이 생성되었습니다.\nID: bizpeer\nPW: ${adminPassword}`);
+      }
     } catch (err: any) {
       if (err.code === 'auth/email-already-in-use') {
-        alert("이미 관리자 계정이 생성되어 있습니다.");
+        if (!isAuto) alert("이미 관리자 계정이 생성되어 있습니다.");
       } else {
-        alert("생성 실패: " + err.message);
+        console.error("Seeding failed:", err);
+        if (!isAuto) alert("생성 실패: " + err.message);
       }
     } finally {
-      setLoading(false);
+      if (!isAuto) setLoading(false);
     }
   };
 
@@ -84,54 +117,61 @@ export const LoginModal: React.FC = () => {
             <p className="text-gray-500">계속하시려면 로그인해주세요</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-5">
-            {error && (
-              <div className="bg-red-50 text-red-700 p-4 rounded-xl flex items-center gap-3 text-sm font-medium border border-red-100">
-                <AlertCircle className="w-5 h-5 shrink-0" />
-                {error}
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">아이디 또는 이메일</label>
-                <input
-                  type="text"
-                  required
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
-                  placeholder="아이디 또는 email@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-1">비밀번호</label>
-                <input
-                  type="password"
-                  required
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
-                  placeholder="비밀번호 입력"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
+          {isInitializing ? (
+            <div className="flex flex-col items-center justify-center py-10 gap-3 text-indigo-600">
+              <Loader2 className="w-8 h-8 animate-spin" />
+              <p className="font-medium">시스템 최적화 중...</p>
             </div>
+          ) : (
+            <form onSubmit={handleLogin} className="space-y-5">
+              {error && (
+                <div className="bg-red-50 text-red-700 p-4 rounded-xl flex items-center gap-3 text-sm font-medium border border-red-100">
+                  <AlertCircle className="w-5 h-5 shrink-0" />
+                  {error}
+                </div>
+              )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-lg shadow-indigo-200 disabled:opacity-50"
-            >
-              {loading ? '인증 중...' : '로그인'}
-            </button>
-          </form>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">아이디 또는 이메일</label>
+                  <input
+                    type="text"
+                    required
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                    placeholder="아이디 또는 email@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">비밀번호</label>
+                  <input
+                    type="password"
+                    required
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
+                    placeholder="비밀번호 입력"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 active:scale-[0.98] transition-all shadow-lg shadow-indigo-200 disabled:opacity-50"
+              >
+                {loading ? '인증 중...' : '로그인'}
+              </button>
+            </form>
+          )}
           
           <div className="mt-6 flex items-center justify-between">
             <p className="text-xs text-gray-400">
               최초 로그인 시 비밀번호 변경 요망
             </p>
             <button 
-              onClick={handleSeedMasterAdmin}
+              onClick={() => handleSeedMasterAdmin(false)}
               className="text-xs text-indigo-400 hover:text-indigo-600 flex items-center gap-1.5 px-2 py-1 hover:bg-indigo-50 rounded-lg transition-all font-medium"
               title="마스터 계정 초기화"
             >
