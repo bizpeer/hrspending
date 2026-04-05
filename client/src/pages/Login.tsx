@@ -48,7 +48,7 @@ export const Login: React.FC = () => {
       const userCredential = await createUserWithEmailAndPassword(auth, adminEmail, adminPassword);
       const uid = userCredential.user.uid;
       
-      await setDoc(doc(db, 'users', uid), {
+      await setDoc(doc(db, 'UserProfile', uid), {
         uid,
         email: adminEmail,
         name: '최고 관리자',

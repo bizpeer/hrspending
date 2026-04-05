@@ -62,7 +62,7 @@ export const OrganizationAdmin: React.FC = () => {
     const unsubTeams = onSnapshot(collection(db, 'teams'), (snap) => {
       setTeams(snap.docs.map(d => ({ id: d.id, ...d.data() } as Team)));
     });
-    const unsubUsers = onSnapshot(collection(db, 'users'), (snap) => {
+    const unsubUsers = onSnapshot(collection(db, 'UserProfile'), (snap) => {
       setEmployees(snap.docs.map(d => ({ uid: d.id, ...d.data() } as Employee)));
       setLoading(false);
     });
@@ -119,7 +119,7 @@ export const OrganizationAdmin: React.FC = () => {
       }
 
       const tempId = `temp_${Date.now()}`;
-      await setDoc(doc(db, 'users', tempId), {
+      await setDoc(doc(db, 'UserProfile', tempId), {
         name: newEmp.name,
         email: finalEmail,
         role: 'EMPLOYEE',
@@ -139,7 +139,7 @@ export const OrganizationAdmin: React.FC = () => {
 
   const handleUpdateRole = async (emp: Employee, newTeamId: string, newRole: string) => {
     try {
-      const userRef = doc(db, 'users', emp.uid);
+      const userRef = doc(db, 'UserProfile', emp.uid);
       const teamName = teams.find(t => t.id === newTeamId)?.name || '미배정';
       
       const newHistory = [...(emp.teamHistory || []), {
@@ -151,6 +151,7 @@ export const OrganizationAdmin: React.FC = () => {
 
       await setDoc(userRef, {
         ...emp,
+        uid: emp.uid, // Explicitly keep UID
         teamId: newTeamId,
         role: newRole,
         teamHistory: newHistory

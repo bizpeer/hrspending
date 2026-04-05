@@ -59,8 +59,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         const isMaster = user.email?.toLowerCase().trim() === 'bizpeer@internal.com';
         set({ user, loading: true });
         try {
-          const userDoc = await getDoc(doc(db, 'users', user.uid));
-          let currentData: UserData | null = userDoc.exists() ? (userDoc.data() as UserData) : null;
+          const profileDoc = await getDoc(doc(db, 'UserProfile', user.uid));
+          let currentData: UserData | null = profileDoc.exists() ? (profileDoc.data() as UserData) : null;
           
           // [마스터 권한 강제 보장] 데이터가 없거나 역할이 ADMIN이 아니면 강제로 수정
           if (isMaster) {
@@ -73,7 +73,7 @@ export const useAuthStore = create<AuthState>((set) => ({
                 teamHistory: currentData?.teamHistory || [],
                 teamId: currentData?.teamId || ''
               };
-              await setDoc(doc(db, 'users', user.uid), currentData);
+              await setDoc(doc(db, 'UserProfile', user.uid), currentData);
               console.log("[Auth] Master profile FORCED/RECOVERED to ADMIN.");
             }
           }
