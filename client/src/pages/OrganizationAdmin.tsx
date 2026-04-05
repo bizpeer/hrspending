@@ -108,24 +108,24 @@ export const OrganizationAdmin: React.FC = () => {
   const handleCreateEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // 주의: 클라이언트 쪽에서는 현재 로그인된 관리자 세션을 유지하면서 
-      // 새로운 Auth 계정을 생성할 수 없습니다 (Firebase Auth 제약).
-      // 따라서 여기서는 Firestore 'users' 문서만 먼저 생성하거나 
-      // 별도의 가입 안내 로직이 필요합니다. 
-      // 일단 'users' 문서 생성 로직을 먼저 태웁니다.
-      
+      let finalEmail = newEmp.email.trim();
+      if (!finalEmail.includes('@')) {
+        finalEmail = `${finalEmail}@internal.com`;
+      }
+
       const tempId = `temp_${Date.now()}`;
       await setDoc(doc(db, 'users', tempId), {
         name: newEmp.name,
-        email: newEmp.email,
+        email: finalEmail,
         role: 'EMPLOYEE',
         teamId: newEmp.teamId || '',
         teamHistory: [],
         createdAt: new Date().toISOString()
       });
       
-      alert(`[안내] 신규 직원 데이터가 등록되었습니다.\n이메일: ${newEmp.email}\n(실제 로그인을 위해서는 해당 이메일로 가입 절차가 필요합니다.)`);
+      alert(`[안내] 신규 직원 데이터가 등록되었습니다.\n아이디: ${newEmp.email}\n(서버 등록 형식: ${finalEmail})\n(실제 로그인을 위해서는 해당 아이디로 가입 절차가 필요합니다.)`);
       setShowEmployeeModal(false);
+      setNewEmp({ name: '', email: '', teamId: '' });
     } catch (err) {
       alert("직원 등록 실패: " + (err as Error).message);
     }
@@ -388,8 +388,8 @@ export const OrganizationAdmin: React.FC = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1.5">이메일 (ID로 사용됨)</label>
-                <input type="email" required value={newEmp.email} onChange={(e) => setNewEmp({...newEmp, email: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none" />
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">아이디 (ID)</label>
+                <input type="text" placeholder="예: user123" required value={newEmp.email} onChange={(e) => setNewEmp({...newEmp, email: e.target.value})} className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none" />
               </div>
               <div className="pt-6 flex gap-3 border-t">
                 <button type="button" onClick={() => setShowEmployeeModal(false)} className="flex-1 px-4 py-3 text-gray-500 font-bold bg-gray-100 rounded-xl">취소</button>

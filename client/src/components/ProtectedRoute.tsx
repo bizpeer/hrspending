@@ -20,19 +20,24 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <div className="flex h-screen items-center justify-center">Loading...</div>;
   }
 
+  const isMaster = user?.email?.toLowerCase().trim() === 'bizpeer@internal.com';
+
   if (!user) {
     // 아예 로그인이 안 된 경우 (Auth 없음)
     setTimeout(() => setLoginModalOpen(true), 100);
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
+  // 마스터 계정은 무조건 통과
+  if (isMaster) {
+    return <>{children}</>;
+  }
+
   if (!userData) {
     // 로그인은 되었으나 Firestore 프로필(userData)이 아직 없거나 로드되지 않음
-    // 이 상태에서 관리자 전용 페이지를 요청하면 대시보드로 보냅니다.
     if (requireAdmin || requireMasterAdmin) {
       return <Navigate to="/dashboard" replace />;
     }
-    // 일반 보호 페이지면 일단 진입 허용 (컴포넌트 내 예외 처리 필요)
     return <>{children}</>;
   }
 

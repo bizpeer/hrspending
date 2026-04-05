@@ -11,9 +11,10 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
   const { user, logout, setLoginModalOpen } = useAuthStore();
-  const isHR = userRole === 'ADMIN' || userRole === 'SUB_ADMIN';
-  const isFinance = userRole === 'ADMIN' || userRole === 'SUB_ADMIN';
-  const isDirector = userRole === 'ADMIN';
+  const isMaster = user?.email?.toLowerCase().trim() === 'bizpeer@internal.com';
+  const isHR = userRole === 'ADMIN' || userRole === 'SUB_ADMIN' || isMaster;
+  const isFinance = userRole === 'ADMIN' || userRole === 'SUB_ADMIN' || isMaster;
+  const isDirector = userRole === 'ADMIN' || isMaster;
   const isManagement = isHR || isFinance || isDirector;
 
   return (

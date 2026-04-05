@@ -19,10 +19,10 @@ export const LoginModal: React.FC = () => {
     setError('');
     setLoading(true);
 
-    // bizpeer 아이디를 내부 이메일 형식으로 변환
-    let loginEmail = email;
-    if (email === 'bizpeer') {
-      loginEmail = 'bizpeer@internal.com';
+    // 아이디를 이메일 형식으로 자동 변환 (가상 이메일 시스템)
+    let loginEmail = email.trim();
+    if (!loginEmail.includes('@')) {
+      loginEmail = `${loginEmail}@internal.com`;
     }
 
     try {
@@ -99,7 +99,7 @@ export const LoginModal: React.FC = () => {
                   type="text"
                   required
                   className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none"
-                  placeholder="bizpeer 또는 email@company.com"
+                  placeholder="아이디 또는 email@company.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
