@@ -20,6 +20,7 @@ try {
   console.warn('Proceeding without Firebase Admin authentication. Please check your serviceAccount.json file.');
 }
 
-export const adminDb = admin.firestore();
+// 데이터베이스 ID(hrspending)를 명시하여 기본(default) 데이터베이스가 아닌 특정 데이터베이스를 사용합니다.
+export const adminDb = admin.firestore('hrspending');
 export const adminAuth = admin.auth();
 export default admin;
