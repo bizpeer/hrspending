@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, CheckCircle2, AlertCircle, Send, Loader2, History } from 'lucide-react';
-import { collection, query, where, onSnapshot, addDoc, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
 import { calculateLeaveEntitlement } from '../utils/leaveCalculator';
@@ -55,7 +55,7 @@ export const LeaveApplication: React.FC = () => {
     const unsubscribe = onSnapshot(q, (snap) => {
       const allReqs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as LeaveRequest));
       // 클라이언트 사이드 필터링 (Firestore 인덱스 에러 방지)
-      setRequests(allReqs.filter(req => req.userId === userData.uid));
+      setRequests(allReqs.filter(req => req.userId === userData?.uid));
       setLoading(false);
     }, (error) => {
       console.error("Firestore Subscribe Error:", error);
