@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  PlusCircle, Users, ShieldAlert, UserPlus, ArrowRightLeft, 
-  Trash2, Loader2, Building, X, Search, MoreHorizontal, ChevronRight, Briefcase, Calendar, Mail, ShieldCheck, History
+  PlusCircle, Users, UserPlus, ArrowRightLeft, 
+  Trash2, Building, X, Search, MoreHorizontal, ChevronRight, Briefcase, Calendar, Mail, ShieldCheck, History
 } from 'lucide-react';
 import { collection, onSnapshot, addDoc, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, onSnapshot, doc, updateDoc, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
-import { CheckCircle, XCircle, Clock, FileText, Calendar, Filter, User, ArrowRight, MoreHorizontal, Check, X, ShieldCheck } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, FileText, Calendar, Filter, User, ArrowRight, Check, X, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface LeaveRequest {
