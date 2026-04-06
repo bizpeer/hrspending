@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { UploadCloud, CheckCircle, FileText, History, AlertCircle, Send, Loader2, DollarSign } from 'lucide-react';
-import { addDoc, collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { addDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
 
@@ -36,17 +36,24 @@ export const ExpenseForm: React.FC = () => {
 
     const q = query(
       collection(db, 'expenses'),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', user.uid)
     );
     
     const unsubscribe = onSnapshot(q, (snap) => {
       const allReqs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ExpenseRequest));
-      // 클라이언트 사이드 필터링 (복합 인덱스 에러 방지)
-      setRequests(allReqs.filter(req => req.userId === (user?.uid || userData?.uid)));
+      // 클라이언트 사이드에서 생성일 기준 내림차순 정렬 (인덱스 에러 방지)
+      const sorted = [...allReqs].sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      setRequests(sorted);
       setLoading(false);
     }, (error) => {
       console.error("Firestore Subscribe Error:", error);
       setLoading(false);
+      // 권한이나 색인 문제가 있을 경우 alert로 안내
+      if (error.code === 'permission-denied') {
+        alert("데이터 조회 권한이 없습니다. 관리자에게 문의해 주세요.");
+      }
     });
 
     return () => unsubscribe();

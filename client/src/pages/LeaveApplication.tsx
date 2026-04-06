@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, History, Send, Loader2, AlertCircle, UploadCloud } from 'lucide-react';
-import { collection, query, onSnapshot, addDoc, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
 import { calculateLeaveEntitlement } from '../utils/leaveCalculator';
@@ -56,18 +56,25 @@ export const LeaveApplication: React.FC = () => {
 
     const q = query(
       collection(db, 'leaves'),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', user.uid)
     );
 
     const unsubscribe = onSnapshot(q, (snap) => {
       const allReqs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as LeaveRequest));
-      // 클라이언트 사이드 필터링 (Firestore 인덱스 에러 방지)
-      setRequests(allReqs.filter(req => req.userId === (user?.uid || userData?.uid)));
+      // 생성일 기준 클라이언트 사이드 내림차순 정렬 (인덱스 에러 방지)
+      const sorted = [...allReqs].sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      setRequests(sorted);
       setLoading(false);
     }, (error) => {
       console.error("Firestore Subscribe Error:", error);
       setLoading(false);
-      alert("휴가 정보를 불러오는 데 권한/인덱스 에러가 발생했습니다. 로그아웃 후 다시 접속해 주세요.");
+      if (error.code === 'permission-denied') {
+        alert("데이터 조회 권한이 없습니다. 관리자에게 문의해 주세요.");
+      } else {
+        alert("휴가 정보를 불러오는 데 오류가 발생했습니다. (인덱스/네트워크)");
+      }
     });
 
     return () => unsubscribe();
