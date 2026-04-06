@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   PlusCircle, Users, UserPlus, ArrowRightLeft, 
-  Trash2, Building, X, Search, MoreHorizontal, ChevronRight, Briefcase, Calendar, Mail, ShieldCheck, History
+  Trash2, Building, X, Search, MoreHorizontal, ChevronRight, Briefcase, Calendar, Mail, ShieldCheck, History,
+  ChevronDown
 } from 'lucide-react';
-import { collection, onSnapshot, addDoc, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
 
@@ -194,17 +195,16 @@ export const OrganizationAdmin: React.FC = () => {
         teamId: newTeamId, teamName, joinedAt: new Date().toISOString(), role: newRole
       }];
 
-      await setDoc(userRef, {
-        ...emp,
-        uid: emp.uid, 
+      await updateDoc(userRef, {
         teamId: newTeamId,
         role: newRole,
         teamHistory: newHistory
-      }, { merge: true });
-
+      });
+      
       await logAction('UPDATE_EMPLOYEE', emp.uid, emp.name, `${teamName} 로 이동 / 역할: ${newRole}`);
-      alert(`${emp.name}님의 소속/역할이 변경되었습니다.`);
+      alert(`${emp.name}님의 소속/역할이 ${newRole} 등급으로 변경되었습니다.`);
       setShowEditModal(false);
+      setEditingEmployee(null);
     } catch (err) {
       alert("변경 실패: " + (err as Error).message);
     }
@@ -808,15 +808,18 @@ export const OrganizationAdmin: React.FC = () => {
                 </div>
                 <div className="space-y-3">
                   <label className="block text-sm font-black text-slate-800 ml-1 tracking-tight">권한 등급 (Access Level)</label>
-                  <select 
-                    className="w-full px-8 py-5 bg-slate-50 border-2 border-transparent rounded-[2rem] focus:border-indigo-500 focus:bg-white outline-none transition-all font-black text-slate-700 shadow-inner appearance-none"
-                    value={editingEmployee?.role || 'EMPLOYEE'}
-                    onChange={(e) => setEditingEmployee(editingEmployee ? { ...editingEmployee, role: e.target.value } : null)}
-                  >
-                    <option value="EMPLOYEE">일반 직원 (EMPLOYEE)</option>
-                    <option value="SUB_ADMIN">부관리자 (SUB_ADMIN)</option>
-                    <option value="ADMIN">시스템 마스터 (ADMIN)</option>
-                  </select>
+                  <div className="relative">
+                    <select 
+                      className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-100 rounded-[2rem] focus:border-indigo-500 focus:bg-white outline-none transition-all font-black text-slate-700 shadow-sm appearance-none cursor-pointer pr-12"
+                      value={editingEmployee?.role || 'EMPLOYEE'}
+                      onChange={(e) => setEditingEmployee(editingEmployee ? { ...editingEmployee, role: e.target.value } : null)}
+                    >
+                      <option value="EMPLOYEE">일반 직원 (EMPLOYEE)</option>
+                      <option value="SUB_ADMIN">부관리자 (SUB_ADMIN)</option>
+                      <option value="ADMIN">시스템 마스터 (ADMIN)</option>
+                    </select>
+                    <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                  </div>
                 </div>
               </div>
               <div className="flex gap-4 pt-4">

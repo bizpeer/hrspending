@@ -54,6 +54,7 @@ export const AdminApprovals: React.FC = () => {
   const [divisions, setDivisions] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
+  const [selectedRequest, setSelectedRequest] = useState<any | null>(null);
 
   useEffect(() => {
     // 1. 신청 내역 구독
@@ -114,6 +115,16 @@ export const AdminApprovals: React.FC = () => {
 
       const divMatch = selectedDivision === 'ALL' || userDivId === selectedDivision;
       const teamMatch = selectedTeam === 'ALL' || userTeamId === selectedTeam;
+
+      // 4. 부관리자(SUB_ADMIN) 보안 필터링: 본인 본부 내역만 노출
+      if (userData?.role === 'SUB_ADMIN') {
+        const subAdminProfile = employees.find(e => e.uid === userData.uid);
+        const subAdminTeam = teams.find(t => t.id === subAdminProfile?.teamId);
+        const subAdminDivId = subAdminTeam?.divisionId;
+        
+        // 본인 본부와 일치하지 않으면 제외
+        if (userDivId !== subAdminDivId) return false;
+      }
 
       return statusMatch && monthMatch && divMatch && teamMatch;
     });
@@ -319,8 +330,14 @@ export const AdminApprovals: React.FC = () => {
                               </div>
                            </td>
 
-                           <td className="px-8 py-7">
+                           <td className="px-8 py-7 text-right">
                               <div className="flex items-center justify-end gap-2.5">
+                                 <button 
+                                    onClick={() => setSelectedRequest(req)}
+                                    className="px-4 py-2.5 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg shadow-slate-100"
+                                 >
+                                    View Details
+                                 </button>
                                  {req.status === 'PENDING' ? (
                                     <>
                                        <button 
@@ -427,6 +444,115 @@ export const AdminApprovals: React.FC = () => {
            </div>
         </div>
       </div>
+
+      {/* 결재 상세 정보 모달 */}
+      {selectedRequest && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-300">
+           <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl border border-slate-100 overflow-hidden animate-in zoom-in-95 duration-500">
+              {/* Modal Header */}
+              <div className="p-10 border-b border-slate-50 flex justify-between items-start">
+                 <div className="space-y-4">
+                    <div className="inline-flex items-center px-4 py-1.5 rounded-full bg-indigo-50 border border-indigo-100 text-[10px] font-black text-indigo-600 uppercase tracking-[0.2em]">
+                       Approval Document Detail
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-900 tracking-tighter">
+                       {activeTab === 'LEAVE' ? '휴가 신청 상세서' : '지출결의 상세서'}
+                    </h2>
+                    <div className="flex items-center gap-4 text-slate-400">
+                       <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-50 rounded-lg text-xs font-bold">
+                          <User className="w-3.5 h-3.5" /> {selectedRequest.userName}
+                       </div>
+                       <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-50 rounded-lg text-xs font-bold">
+                          <Calendar className="w-3.5 h-3.5" /> {selectedRequest.createdAt ? format(new Date(selectedRequest.createdAt), 'yyyy.MM.dd') : '-'}
+                       </div>
+                    </div>
+                 </div>
+                 <button 
+                  onClick={() => setSelectedRequest(null)}
+                  className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:bg-slate-100 hover:text-slate-900 transition-all"
+                 >
+                    <X className="w-6 h-6" />
+                 </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-10 space-y-10 max-h-[60vh] overflow-y-auto premium-scrollbar">
+                 <div className="grid grid-cols-2 gap-8">
+                    <div className="space-y-2">
+                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">신청 분류</span>
+                       <div className="p-4 bg-slate-50 rounded-2xl font-black text-slate-700 border border-slate-100">
+                          {activeTab === 'LEAVE' ? (selectedRequest.type === 'annual' ? '연차 휴가' : selectedRequest.type === 'half' ? '반차 휴가' : '경조사/병가') : selectedRequest.category}
+                       </div>
+                    </div>
+                    <div className="space-y-2">
+                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">{activeTab === 'LEAVE' ? '총 소진 일수' : '최종 결제 금액'}</span>
+                       <div className={`p-4 rounded-2xl font-black border ${activeTab === 'LEAVE' ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}>
+                          {activeTab === 'LEAVE' ? `${selectedRequest.requestDays} 일` : `₩ ${Number(selectedRequest.amount).toLocaleString()}`}
+                       </div>
+                    </div>
+                 </div>
+
+                 <div className="space-y-2">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">{activeTab === 'LEAVE' ? '휴가 기간' : '지출 상세 내용'}</span>
+                    <div className="p-6 bg-slate-50 rounded-3xl border border-slate-100 min-h-[100px]">
+                       {activeTab === 'LEAVE' ? (
+                          <div className="flex items-center justify-between">
+                             <div className="flex flex-col gap-1">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">Start Date</span>
+                                <span className="text-xl font-black text-slate-800">{selectedRequest.startDate}</span>
+                             </div>
+                             <div className="w-10 h-px bg-slate-300"></div>
+                             <div className="flex flex-col gap-1 items-end">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">End Date</span>
+                                <span className="text-xl font-black text-slate-800">{selectedRequest.endDate}</span>
+                             </div>
+                          </div>
+                       ) : (
+                          <p className="text-slate-700 font-bold leading-relaxed whitespace-pre-wrap">{selectedRequest.description || selectedRequest.title}</p>
+                       )}
+                    </div>
+                 </div>
+
+                 {activeTab === 'LEAVE' && (
+                    <div className="space-y-2">
+                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">상세 사유</span>
+                       <div className="p-6 bg-slate-900 rounded-3xl text-slate-200 border border-slate-800 shadow-xl">
+                          <p className="text-base font-medium leading-relaxed whitespace-pre-wrap italic">"{selectedRequest.reason}"</p>
+                       </div>
+                    </div>
+                 )}
+
+                 <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-100 rounded-2xl">
+                    <Clock className="w-5 h-5 text-amber-500 animate-spin-slow" />
+                    <div>
+                       <p className="text-[10px] font-black text-amber-800 uppercase tracking-tight">Current Status</p>
+                       <p className="text-xs font-bold text-amber-600">현재 이 문서는 <span className="underline">{selectedRequest.status === 'PENDING' ? '검토 중' : selectedRequest.status}</span> 상태입니다.</p>
+                    </div>
+                 </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-10 bg-slate-50 border-t border-slate-100 flex gap-4">
+                 <button 
+                  onClick={() => setSelectedRequest(null)}
+                  className="flex-1 py-5 bg-white border border-slate-200 text-slate-400 font-black rounded-2xl hover:bg-slate-100 transition-all uppercase tracking-[0.2em] text-xs"
+                 >
+                    Close
+                 </button>
+                 {selectedRequest.status === 'PENDING' && (
+                    <>
+                       <button 
+                        onClick={() => { handleUpdateStatus(activeTab === 'LEAVE' ? 'leaves' : 'expenses', selectedRequest.id, 'APPROVED'); setSelectedRequest(null); }}
+                        className="flex-[1.5] py-5 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 uppercase tracking-[0.2em] text-xs"
+                       >
+                          Final Approve
+                       </button>
+                    </>
+                 )}
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };
