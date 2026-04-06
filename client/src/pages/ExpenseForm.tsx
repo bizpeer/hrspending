@@ -77,31 +77,40 @@ export const ExpenseForm: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      let attachmentUrl = editingRequest?.attachmentUrl || '';
-      let attachmentName = fileName || editingRequest?.attachmentName || '';
+      // 0. 초기화: undefined 방지를 위해 기본값 보장
+      let finalUrl = editingRequest?.attachmentUrl || '';
+      let finalName = fileName || editingRequest?.attachmentName || '';
       
-      // 0. 파일 업로드 로직 (새 파일이 선택된 경우에만)
+      // 1. 파일 업로드 로직 (새 파일이 선택된 경우에만)
       if (selectedFile) {
-        const fileRef = ref(storage, `expenses/${user?.uid || 'anonymous'}/${Date.now()}_${selectedFile.name}`);
+        console.log("Uploading file...", selectedFile.name);
+        const folderPath = `expenses/${user?.uid || 'anonymous'}`;
+        const fileNameToSave = `${Date.now()}_${selectedFile.name}`;
+        const fileRef = ref(storage, `${folderPath}/${fileNameToSave}`);
+        
         const uploadResult = await uploadBytes(fileRef, selectedFile);
-        attachmentUrl = await getDownloadURL(uploadResult.ref);
-        attachmentName = selectedFile.name;
+        finalUrl = await getDownloadURL(uploadResult.ref);
+        finalName = selectedFile.name;
+        console.log("Upload Success:", finalUrl);
       }
 
+      // 2. 페이로드 구성 (모든 필드에 대해 undefined 방지 처리)
       const payload = {
         userId: user?.uid || userData?.uid || 'UNKNOWN',
         userName: userData?.name || '가입대기(직원)',
         teamId: userData?.teamId || '',
-        title,
+        title: title || '제목 없음',
         amount: Number(amount) || 0,
-        date,
-        category,
-        description,
-        attachmentName,
-        attachmentUrl,
+        date: date || new Date().toISOString().split('T')[0],
+        category: category || '기타',
+        description: description || '',
+        attachmentName: finalName || '',
+        attachmentUrl: finalUrl || '',
         status: isEditing ? (editingRequest?.status || 'PENDING') : 'PENDING',
         updatedAt: new Date().toISOString()
       };
+
+      console.log("Saving document...", isEditing ? "UPDATE" : "CREATE");
 
       if (isEditing && editingId) {
         // 기존 문서 업데이트
@@ -110,7 +119,7 @@ export const ExpenseForm: React.FC = () => {
         setIsEditing(false);
         setEditingId(null);
         setEditingRequest(null);
-        setSelectedRequest(null); // 수정 성공 후 상세 모달 닫기
+        setSelectedRequest(null);
       } else {
         // 신규 등록
         await addDoc(collection(db, 'expenses'), {
@@ -127,11 +136,11 @@ export const ExpenseForm: React.FC = () => {
       setDescription('');
       setFileName('');
       setSelectedFile(null);
-      // selectedRequest는 위에서 이미 처리함
       
     } catch (error) {
-      console.error('Submit/Update Error:', error);
-      alert('처리 중 오류가 발생했습니다: ' + (error as Error).message);
+      console.error('Submit/Update Detailed Error:', error);
+      const msg = (error as Error).message;
+      alert('처리 중 오류가 발생했습니다.\n\n원인: ' + msg);
     } finally {
       setIsSubmitting(false); // 로딩 상태 확실히 해제
     }
