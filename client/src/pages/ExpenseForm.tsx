@@ -60,6 +60,7 @@ export const ExpenseForm: React.FC = () => {
       await addDoc(collection(db, 'expenses'), {
         userId: user?.uid || userData?.uid || 'UNKNOWN',
         userName: userData?.name || '가입대기(직원)',
+        teamId: userData?.teamId || '',
         title,
         amount: Number(amount) || 0,
         date,

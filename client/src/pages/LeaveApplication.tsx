@@ -95,6 +95,7 @@ export const LeaveApplication: React.FC = () => {
       await addDoc(collection(db, 'leaves'), {
         userId: user?.uid || userData?.uid || 'UNKNOWN',
         userName: userData?.name || '가입대기(직원)',
+        teamId: userData?.teamId || '',
         type: formData.type || 'annual',
         startDate: formData.startDate || '',
         endDate: formData.endDate || '',
