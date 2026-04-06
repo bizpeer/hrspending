@@ -83,15 +83,27 @@ export const ExpenseForm: React.FC = () => {
       
       // 1. 파일 업로드 로직 (새 파일이 선택된 경우에만)
       if (selectedFile) {
-        console.log("Uploading file...", selectedFile.name);
+        console.log("📤 Uploading file to Storage...", selectedFile.name);
+        
+        // Storage 설정이 올바른지 체크 (Buckets이 없으면 무한 대기 가능성 상존)
+        if (!storage.app.options.storageBucket) {
+          throw new Error("Firebase Storage Bucket 설정(VITE_FIREBASE_STORAGE_BUCKET)이 누락되었습니다. 관리자에게 문의해 주세요.");
+        }
+
         const folderPath = `expenses/${user?.uid || 'anonymous'}`;
         const fileNameToSave = `${Date.now()}_${selectedFile.name}`;
         const fileRef = ref(storage, `${folderPath}/${fileNameToSave}`);
         
-        const uploadResult = await uploadBytes(fileRef, selectedFile);
+        // 무한 로딩 방지: 20초 타임아웃 적용
+        const uploadPromise = uploadBytes(fileRef, selectedFile);
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error("업로드 시간 초과: 네트워크 상태를 확인하거나 스토리지 설정을 점검해 주세요.")), 20000)
+        );
+
+        const uploadResult = await Promise.race([uploadPromise, timeoutPromise]);
         finalUrl = await getDownloadURL(uploadResult.ref);
         finalName = selectedFile.name;
-        console.log("Upload Success:", finalUrl);
+        console.log("✅ Upload Success:", finalUrl);
       }
 
       // 2. 페이로드 구성 (모든 필드에 대해 undefined 방지 처리)
@@ -110,7 +122,7 @@ export const ExpenseForm: React.FC = () => {
         updatedAt: new Date().toISOString()
       };
 
-      console.log("Saving document...", isEditing ? "UPDATE" : "CREATE");
+      console.log("💾 Saving document...", isEditing ? "UPDATE" : "CREATE");
 
       if (isEditing && editingId) {
         // 기존 문서 업데이트
@@ -138,11 +150,11 @@ export const ExpenseForm: React.FC = () => {
       setSelectedFile(null);
       
     } catch (error) {
-      console.error('Submit/Update Detailed Error:', error);
-      const msg = (error as Error).message;
-      alert('처리 중 오류가 발생했습니다.\n\n원인: ' + msg);
+      console.error('Submit/Update Error Detailed:', error);
+      const errorMsg = (error as Error).message;
+      alert('처리 중 오류가 발생했습니다.\n\n원인: ' + errorMsg);
     } finally {
-      setIsSubmitting(false); // 로딩 상태 확실히 해제
+      setIsSubmitting(false); // 무한 로딩 방어: 어떤 경우에도 로딩 해제
     }
   };
 
