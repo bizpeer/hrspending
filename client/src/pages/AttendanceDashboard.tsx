@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { collection, query, where, orderBy, onSnapshot, addDoc, limit } from 'firebase/firestore';
 import { db } from '../firebase';
 import { format } from 'date-fns';
+import { calculateLeaveEntitlement } from '../utils/leaveCalculator';
 
 interface AttendanceRecord {
   id: string;
@@ -72,7 +73,6 @@ export const AttendanceDashboard: React.FC = () => {
         location: '본사 (IP 인증됨)',
         createdAt: new Date().toISOString()
       });
-      // 성공 피드백은 Firestore Snapshot이 화면을 업데이트하며 자연스럽게 처리됨
     } catch (e) {
       alert('기록 중 오류가 발생했습니다: ' + (e as Error).message);
     } finally {
@@ -82,18 +82,53 @@ export const AttendanceDashboard: React.FC = () => {
 
   const lastStatus = records[0];
 
+  // 연차 요약 로직 추가
+  const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+  useEffect(() => {
+    if (!user?.uid) return;
+    const q = query(collection(db, 'leaves'), where('userId', '==', user.uid));
+    return onSnapshot(q, (snap) => {
+      setLeaveRequests(snap.docs.map(doc => doc.data()));
+    });
+  }, [user?.uid]);
+
+  const joinDate = userData?.joinDate ? new Date(userData.joinDate) : new Date();
+  const totalLeave = calculateLeaveEntitlement(joinDate);
+  const usedLeave = leaveRequests
+    .filter(req => req.status === 'APPROVED' && (req.type === 'annual' || req.type === 'half'))
+    .reduce((sum, req) => sum + (req.requestDays || 0), 0);
+  const remainingLeave = totalLeave - usedLeave;
+
   return (
     <div className="flex-1 p-4 md:p-10 bg-slate-50 min-h-screen">
       <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-indigo-600 rounded-lg text-white">
-                <CalendarIcon className="w-5 h-5" />
+        <div className="flex flex-col xl:flex-row xl:items-end justify-between mb-10 gap-6">
+          <div className="flex flex-col md:flex-row md:items-center gap-8">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 bg-indigo-600 rounded-lg text-white">
+                  <CalendarIcon className="w-5 h-5" />
+                </div>
+                <h1 className="text-3xl font-black text-slate-900 tracking-tight">근태 현황 대시보드</h1>
               </div>
-              <h1 className="text-3xl font-black text-slate-900 tracking-tight">근태 현황 대시보드</h1>
+              <p className="text-slate-500 font-medium">{kstDate}</p>
             </div>
-            <p className="text-slate-500 font-medium">{kstDate}</p>
+
+            {/* 실시간 연차 요약 카드 (대시보드 상단 추가) */}
+            <div className="flex gap-3 bg-white p-2 rounded-[2rem] shadow-xl border border-slate-100">
+               <div className="px-5 py-3 rounded-2xl bg-slate-50 flex flex-col items-center min-w-[80px]">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">총 발생</span>
+                  <span className="text-lg font-black text-slate-700">{totalLeave}</span>
+               </div>
+               <div className="px-5 py-3 rounded-2xl bg-slate-50 flex flex-col items-center min-w-[80px]">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">사용됨</span>
+                  <span className="text-lg font-black text-rose-500">{usedLeave}</span>
+               </div>
+               <div className="px-5 py-3 rounded-2xl bg-indigo-600 flex flex-col items-center min-w-[100px] shadow-lg shadow-indigo-100">
+                  <span className="text-[9px] font-black text-indigo-200 uppercase tracking-widest mb-0.5">잔여 연차</span>
+                  <span className="text-lg font-black text-white">{remainingLeave}</span>
+               </div>
+            </div>
           </div>
           
           <div className="glass-card px-8 py-4 rounded-3xl premium-shadow flex items-center gap-6 border-indigo-100">

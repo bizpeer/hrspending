@@ -38,10 +38,15 @@ export const LeaveApplication: React.FC = () => {
     reason: ''
   });
 
-  // 연차 계산
+  // 연차 계산 (실시간 집계 로직으로 변경)
   const joinDate = userData?.joinDate ? new Date(userData.joinDate) : new Date();
   const totalLeave = calculateLeaveEntitlement(joinDate);
-  const usedLeave = userData?.usedLeave || 0;
+  
+  // 승인된 연차/반차 내역만 합산하여 실시간으로 '사용 완료' 계산
+  const usedLeave = requests
+    .filter(req => req.status === 'APPROVED' && (req.type === 'annual' || req.type === 'half'))
+    .reduce((sum, req) => sum + (req.requestDays || 0), 0);
+    
   const remainingLeave = totalLeave - usedLeave;
 
   useEffect(() => {
