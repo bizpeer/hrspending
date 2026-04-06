@@ -389,13 +389,13 @@ export const AdminApprovals: React.FC = () => {
                        <tr>
                           <td colSpan={5} className="py-40 text-center">
                              <div className="flex flex-col items-center gap-5">
-                                <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center border border-slate-100 shadow-inner group/empty">
-                                   <Filter className="w-10 h-10 text-slate-200 group-hover/empty:scale-110 transition-transform" />
-                                </div>
-                                <div className="space-y-1">
-                                   <p className="text-slate-500 font-black tracking-tight text-xl">조회 조건에 맞는 안건이 없습니다.</p>
-                                   <p className="text-slate-400 text-sm font-medium">필터(기간, 소속, 상태)를 조정해 보세요.</p>
-                                </div>
+                                 <div className="w-24 h-24 bg-slate-50 rounded-[2.5rem] flex items-center justify-center border border-slate-100 shadow-inner group/empty">
+                                    <Filter className="w-10 h-10 text-slate-200 group-hover/empty:scale-110 transition-transform" />
+                                 </div>
+                                 <div className="space-y-1">
+                                    <p className="text-slate-500 font-black tracking-tight text-xl">조회 조건에 맞는 안건이 없습니다.</p>
+                                    <p className="text-slate-400 text-sm font-medium">필터(기간, 소속, 상태)를 조정해 보세요.</p>
+                                 </div>
                              </div>
                           </td>
                        </tr>
@@ -543,7 +543,8 @@ export const AdminApprovals: React.FC = () => {
                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">첨부 증빙 자료 (Attachments)</span>
                         
                         {/* 이미지 미리보기 추가 */}
-                        {selectedRequest.attachmentUrl && (['.jpg', '.jpeg', '.png', '.gif', '.webp'].some(ext => selectedRequest.attachmentUrl.toLowerCase().includes(ext)) || selectedRequest.attachmentUrl.includes('image%2F')) && (
+                        {selectedRequest.attachmentUrl && ((['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].some(ext => selectedRequest.attachmentUrl?.toLowerCase().includes(ext)) || 
+                          selectedRequest.attachmentUrl.includes('image%2F')) && (
                            <div className="mb-4 rounded-2xl overflow-hidden border border-slate-200 bg-slate-50">
                               <img 
                                  src={selectedRequest.attachmentUrl} 
@@ -552,7 +553,7 @@ export const AdminApprovals: React.FC = () => {
                                  onClick={() => window.open(selectedRequest.attachmentUrl, '_blank')}
                               />
                            </div>
-                        )}
+                        ))}
 
                         {selectedRequest.attachmentUrl ? (
                            <div className="flex items-center justify-between p-5 bg-white border-2 border-indigo-50 rounded-2xl shadow-sm hover:border-indigo-200 transition-all group/file">
@@ -572,7 +573,7 @@ export const AdminApprovals: React.FC = () => {
                                  Download / View
                               </button>
                            </div>
-                        ) : (
+                        ) : selectedRequest.attachmentName ? (
                            <div className="flex items-center justify-between p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl group/file">
                               <div className="flex items-center gap-4">
                                  <div className="w-12 h-12 bg-slate-200 rounded-xl flex items-center justify-center text-slate-400">
@@ -584,13 +585,12 @@ export const AdminApprovals: React.FC = () => {
                                  </div>
                               </div>
                            </div>
-                        )
-                       ) : (
-                          <div className="p-10 border-2 border-slate-100 border-dashed rounded-3xl flex flex-col items-center gap-3 text-slate-300 bg-slate-50/30">
-                             <AlertCircle className="w-8 h-8 opacity-20" />
-                             <p className="text-xs font-bold italic">첨부된 증빙 서류가 없습니다.</p>
-                          </div>
-                       )}
+                        ) : (
+                           <div className="p-10 border-2 border-slate-100 border-dashed rounded-3xl flex flex-col items-center gap-3 text-slate-300 bg-slate-50/30">
+                              <AlertCircle className="w-8 h-8 opacity-20" />
+                              <p className="text-xs font-bold italic">첨부된 증빙 서류가 없습니다.</p>
+                           </div>
+                        )}
                     </div>
                  )}
               </div>
