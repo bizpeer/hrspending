@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, History, Send, Loader2, AlertCircle, UploadCloud, FileText } from 'lucide-react';
+import { Calendar, History, Send, Loader2, AlertCircle, UploadCloud } from 'lucide-react';
 import { collection, query, onSnapshot, addDoc, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuthStore } from '../store/authStore';

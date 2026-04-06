@@ -3,7 +3,7 @@ import { collection, query, onSnapshot, doc, updateDoc, orderBy } from 'firebase
 import { db } from '../firebase';
 import { 
   CheckCircle, XCircle, Clock, FileText, Calendar, Filter, User, 
-  Check, X, ShieldCheck, Search, Building, Users, RotateCcw 
+  Check, X, ShieldCheck, Search, Building, Users, RotateCcw, AlertCircle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuthStore } from '../store/authStore';
