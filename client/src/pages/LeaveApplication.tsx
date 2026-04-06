@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, History, Send, Loader2, AlertCircle, UploadCloud } from 'lucide-react';
 import { collection, query, onSnapshot, addDoc, where } from 'firebase/firestore';
-import { db } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../firebase';
 import { useAuthStore } from '../store/authStore';
 import { calculateLeaveEntitlement } from '../utils/leaveCalculator';
 import { format, parseISO, differenceInDays } from 'date-fns';
@@ -17,6 +18,8 @@ interface LeaveRequest {
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   createdAt: string;
   requestDays: number;
+  attachmentName?: string;
+  attachmentUrl?: string;
 }
 
 export const LeaveApplication: React.FC = () => {
@@ -32,12 +35,14 @@ export const LeaveApplication: React.FC = () => {
     endDate: string;
     reason: string;
     fileName: string;
+    file: File | null;
   }>({
     type: 'annual',
     startDate: format(new Date(), 'yyyy-MM-dd'),
     endDate: format(new Date(), 'yyyy-MM-dd'),
     reason: '',
-    fileName: ''
+    fileName: '',
+    file: null
   });
 
   // 연차 계산 (실시간 집계 로직으로 변경)
@@ -101,6 +106,14 @@ export const LeaveApplication: React.FC = () => {
 
     try {
       setSubmitting(true);
+      
+      let attachmentUrl = '';
+      if (formData.file) {
+        const fileRef = ref(storage, `leaves/${user?.uid || 'anonymous'}/${Date.now()}_${formData.file.name}`);
+        const uploadResult = await uploadBytes(fileRef, formData.file);
+        attachmentUrl = await getDownloadURL(uploadResult.ref);
+      }
+
       await addDoc(collection(db, 'leaves'), {
         userId: user?.uid || userData?.uid || 'UNKNOWN',
         userName: userData?.name || '가입대기(직원)',
@@ -110,6 +123,7 @@ export const LeaveApplication: React.FC = () => {
         endDate: formData.endDate || '',
         reason: formData.reason || '',
         attachmentName: formData.fileName || '',
+        attachmentUrl: attachmentUrl, // URL 저장
         status: 'PENDING',
         requestDays: days || 0,
         createdAt: new Date().toISOString()
@@ -119,7 +133,8 @@ export const LeaveApplication: React.FC = () => {
       setFormData({
         ...formData,
         reason: '',
-        fileName: ''
+        fileName: '',
+        file: null
       });
     } catch (err) {
       alert("신청 실패: " + (err as Error).message);
@@ -238,7 +253,8 @@ export const LeaveApplication: React.FC = () => {
                         type="file" className="hidden" accept="image/*,.pdf" 
                         onChange={(e) => {
                           if (e.target.files && e.target.files[0]) {
-                            setFormData({...formData, fileName: e.target.files[0].name});
+                            const file = e.target.files[0];
+                            setFormData({...formData, fileName: file.name, file: file});
                           }
                         }} 
                       />

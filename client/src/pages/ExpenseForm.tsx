@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { UploadCloud, CheckCircle, FileText, History, AlertCircle, Send, Loader2, DollarSign } from 'lucide-react';
 import { addDoc, collection, query, where, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../firebase';
 import { useAuthStore } from '../store/authStore';
 
 interface ExpenseRequest {
@@ -15,6 +16,8 @@ interface ExpenseRequest {
   description: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   createdAt: string;
+  attachmentName?: string;
+  attachmentUrl?: string;
 }
 
 export const ExpenseForm: React.FC = () => {
@@ -25,6 +28,7 @@ export const ExpenseForm: React.FC = () => {
   const [category, setCategory] = useState('식비/회식대');
   const [description, setDescription] = useState('');
   const [fileName, setFileName] = useState('');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -64,6 +68,15 @@ export const ExpenseForm: React.FC = () => {
     setIsSubmitting(true);
 
     try {
+      let attachmentUrl = '';
+      
+      // 0. 파일 업로드 로직 추가
+      if (selectedFile) {
+        const fileRef = ref(storage, `expenses/${user?.uid || 'anonymous'}/${Date.now()}_${selectedFile.name}`);
+        const uploadResult = await uploadBytes(fileRef, selectedFile);
+        attachmentUrl = await getDownloadURL(uploadResult.ref);
+      }
+
       await addDoc(collection(db, 'expenses'), {
         userId: user?.uid || userData?.uid || 'UNKNOWN',
         userName: userData?.name || '가입대기(직원)',
@@ -74,6 +87,7 @@ export const ExpenseForm: React.FC = () => {
         category,
         description,
         attachmentName: fileName || '',
+        attachmentUrl: attachmentUrl, // URL 저장
         status: 'PENDING',
         createdAt: new Date().toISOString()
       });
@@ -84,6 +98,7 @@ export const ExpenseForm: React.FC = () => {
       setDate('');
       setDescription('');
       setFileName('');
+      setSelectedFile(null);
       
     } catch (error) {
       console.error('Failed to submit expense request:', error);
@@ -95,7 +110,9 @@ export const ExpenseForm: React.FC = () => {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setFileName(e.target.files[0].name);
+      const file = e.target.files[0];
+      setFileName(file.name);
+      setSelectedFile(file);
     }
   };
 
