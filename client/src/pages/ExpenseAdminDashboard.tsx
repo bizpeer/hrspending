@@ -1,5 +1,11 @@
-import React, { useState } from 'react';
-import { PieChart, DollarSign, Calendar, Filter, Printer, ChevronRight, TrendingUp, Download, Search, FileText, User } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  PieChart, DollarSign, Calendar, Filter, Printer, ChevronRight, 
+  TrendingUp, Download, Search, FileText, Loader2 
+} from 'lucide-react';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { db } from '../firebase';
+import { format, addMonths, startOfMonth, parseISO } from 'date-fns';
 
 interface Expense {
   id: string;
@@ -7,30 +13,77 @@ interface Expense {
   amount: number;
   date: string;
   category: string;
-  status: 'APPROVED' | 'PENDING_DIRECTOR' | 'PENDING_FINANCE';
+  status: 'APPROVED' | 'PENDING' | 'REJECTED';
   applicant: string;
+  userName?: string; // AdminApprovals와 일관성을 위해 추가
 }
 
-const MOCK_EXPENSES: Expense[] = [
-  { id: '1', title: '팀 회식비', amount: 150000, date: '2026-03-25', category: '식비', status: 'APPROVED', applicant: '홍길동' },
-  { id: '2', title: 'AWS 서버비', amount: 850000, date: '2026-03-26', category: '인프라', status: 'APPROVED', applicant: '김개발' },
-  { id: '3', title: '사무용품 구매', amount: 45000, date: '2026-03-28', category: '비품', status: 'PENDING_DIRECTOR', applicant: '이인사' },
-  { id: '4', title: '외부 미팅 커피', amount: 12000, date: '2026-03-29', category: '진행비', status: 'APPROVED', applicant: '박영업' },
-];
-
 export const ExpenseAdminDashboard: React.FC = () => {
-  const [startDate, setStartDate] = useState<string>('2026-03-01');
-  const [endDate, setEndDate] = useState<string>('2026-03-31');
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // 초기 날짜 설정: 이번 달 1일 ~ 다음 달 1일 (자동 1개월 범위)
+  const initialStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+  const initialEnd = format(addMonths(parseISO(initialStart), 1), 'yyyy-MM-dd');
+  
+  const [startDate, setStartDate] = useState<string>(initialStart);
+  const [endDate, setEndDate] = useState<string>(initialEnd);
 
-  const filteredExpenses = MOCK_EXPENSES.filter((expense) => {
-    if (expense.status !== 'APPROVED') return false;
-    const expenseDate = new Date(expense.date);
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    return expenseDate >= start && expenseDate <= end;
+  // Firestore 실시간 데이터 패칭
+  useEffect(() => {
+    setLoading(true);
+    const q = query(
+      collection(db, 'expenses'),
+      where('status', '==', 'APPROVED'),
+      orderBy('date', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const expenseData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Expense[];
+      setExpenses(expenseData);
+      setLoading(false);
+    }, (error) => {
+      console.error("Firestore Error:", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // 시작 날짜 변경 시 종료 날짜 자동 1개월 뒤로 설정
+  const handleStartDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newStart = e.target.value;
+    setStartDate(newStart);
+    
+    // 1개월 뒤 날짜 자동 계산
+    try {
+      const nextMonth = addMonths(parseISO(newStart), 1);
+      setEndDate(format(nextMonth, 'yyyy-MM-dd'));
+    } catch (err) {
+      console.error("Date Calculation Error:", err);
+    }
+  };
+
+  const filteredExpenses = expenses.filter((expense) => {
+    const expenseDate = expense.date;
+    return expenseDate >= startDate && expenseDate <= endDate;
   });
 
-  const totalAmount = filteredExpenses.reduce((sum, curr) => sum + curr.amount, 0);
+  const totalAmount = filteredExpenses.reduce((sum, curr) => sum + Number(curr.amount || 0), 0);
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-slate-50 min-h-screen">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
+          <p className="text-slate-500 font-black tracking-tight text-lg">지출 통계 엔진 가동 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 p-4 md:p-10 bg-slate-50 min-h-screen">
@@ -78,7 +131,7 @@ export const ExpenseAdminDashboard: React.FC = () => {
                  </div>
                  <div className="flex items-center gap-2 text-emerald-500/80 text-xs font-bold">
                     <TrendingUp className="w-4 h-4" />
-                    <span>지난 달 대비 12.5% 상승</span>
+                    <span>필터 범위 내 총 지출액</span>
                  </div>
               </div>
 
@@ -86,20 +139,20 @@ export const ExpenseAdminDashboard: React.FC = () => {
 
               <div className="space-y-6 print:hidden">
                  <div className="flex flex-col gap-1.5">
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Analysis Period</span>
-                    <div className="flex items-center gap-3 bg-slate-800/50 p-2 rounded-2xl border border-slate-700">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1 text-emerald-400">Analysis Period (Auto 1-Month)</span>
+                    <div className="flex items-center gap-3 bg-slate-800/50 p-3 rounded-2xl border border-slate-700">
                        <input 
                          type="date" 
                          value={startDate}
-                         onChange={(e) => setStartDate(e.target.value)}
-                         className="bg-transparent text-white font-black text-xs outline-none cursor-pointer"
+                         onChange={handleStartDateChange}
+                         className="bg-transparent text-white font-black text-xs outline-none cursor-pointer flex-1"
                        />
                        <span className="text-slate-600">~</span>
                        <input 
                          type="date" 
                          value={endDate}
                          onChange={(e) => setEndDate(e.target.value)}
-                         className="bg-transparent text-white font-black text-xs outline-none cursor-pointer"
+                         className="bg-transparent text-white font-black text-xs outline-none cursor-pointer flex-1"
                        />
                     </div>
                  </div>
@@ -121,8 +174,8 @@ export const ExpenseAdminDashboard: React.FC = () => {
                 <FileText className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="text-xl font-black text-slate-800 tracking-tight">승인 완료 내역</h2>
-                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-0.5">Approved List</p>
+                <h2 className="text-xl font-black text-slate-800 tracking-tight">승인 완료 내역 통합 조회</h2>
+                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-0.5">Real-time Approved Database</p>
               </div>
             </div>
             
@@ -174,15 +227,15 @@ export const ExpenseAdminDashboard: React.FC = () => {
                       </td>
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-3">
-                           <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
-                              <User className="w-4 h-4 text-slate-400" />
+                           <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 text-[10px] font-black text-slate-400">
+                              {expense.userName?.charAt(0) || expense.applicant?.charAt(0) || 'U'}
                            </div>
-                           <span className="text-xs font-black text-slate-700">{expense.applicant}</span>
+                           <span className="text-xs font-black text-slate-700">{expense.userName || expense.applicant}</span>
                         </div>
                       </td>
                       <td className="px-8 py-6 text-right">
                         <span className="text-sm font-black text-slate-900 group-hover:scale-110 inline-block transition-transform">
-                          {expense.amount.toLocaleString()} <span className="text-[10px] text-slate-400 ml-0.5">원</span>
+                          {Number(expense.amount || 0).toLocaleString()} <span className="text-[10px] text-slate-400 ml-0.5">원</span>
                         </span>
                       </td>
                       <td className="px-8 py-6 text-right print:hidden">
@@ -197,7 +250,7 @@ export const ExpenseAdminDashboard: React.FC = () => {
                     <td colSpan={5} className="py-32 text-center">
                        <FileText className="w-16 h-16 text-slate-100 mx-auto mb-4" />
                        <p className="text-slate-400 font-black tracking-tight text-lg">해당 기간 내 승인된 내역이 없습니다.</p>
-                       <p className="text-slate-300 text-sm font-medium mt-1">필터 조건을 변경하여 다시 조회해 보세요.</p>
+                       <p className="text-slate-300 text-sm font-medium mt-1">필터 조건을 변경하거나 실제 승인된 데이터여부를 확인하세요.</p>
                     </td>
                   </tr>
                 )}
@@ -210,7 +263,7 @@ export const ExpenseAdminDashboard: React.FC = () => {
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Count:</span>
                 <span className="text-xs font-black text-slate-900">{filteredExpenses.length} 건</span>
              </div>
-             <p className="text-[10px] text-slate-300 font-bold italic print:block hidden">이 리포트는 Stitch HR 시스템에 의해 자동 생성되었습니다.</p>
+             <p className="text-[10px] text-slate-300 font-bold italic print:block hidden">이 리포트는 Stitch HR 시스템에 의해 실시간 생성되었습니다.</p>
           </div>
         </div>
       </div>
