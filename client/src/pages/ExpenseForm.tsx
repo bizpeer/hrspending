@@ -43,6 +43,7 @@ export const ExpenseForm: React.FC = () => {
   const [editingRequest, setEditingRequest] = useState<ExpenseRequest | null>(null); // 현재 수정 중인 원본 데이터
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [filterMonth, setFilterMonth] = useState(format(new Date(), 'yyyy-MM'));
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -71,6 +72,22 @@ export const ExpenseForm: React.FC = () => {
 
     return () => unsubscribe();
   }, [user?.uid]);
+
+  // 필터링된 내역 계산
+  const filteredRequests = filterMonth === 'all' 
+    ? requests 
+    : requests.filter(req => req.date.substring(0, 7) === filterMonth);
+
+  // 최근 12개월 목록 생성 (필터용)
+  const monthOptions = Array.from({ length: 13 }, (_, i) => {
+    if (i === 12) return { value: 'all', label: '전체 보기' };
+    const d = new Date();
+    d.setMonth(d.getMonth() - i);
+    return { 
+      value: format(d, 'yyyy-MM'), 
+      label: format(d, 'yyyy년 MM월') 
+    };
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -380,12 +397,25 @@ export const ExpenseForm: React.FC = () => {
           {/* 신청 내역 */}
           <div className="lg:col-span-12 xl:col-span-7 space-y-8">
             <div className="bg-white rounded-[2.5rem] shadow-xl p-8 border border-slate-100 h-full overflow-hidden">
-               <div className="flex items-center justify-between mb-8">
+               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
                   <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3">
                     <History className="w-7 h-7 text-emerald-500" />
                     나의 신청 내역
                   </h2>
-                  <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">Live Updates</div>
+                  
+                  {/* 월별 필터 UI */}
+                  <div className="relative group/filter w-full sm:w-auto">
+                    <select 
+                      value={filterMonth}
+                      onChange={(e) => setFilterMonth(e.target.value)}
+                      className="w-full sm:w-40 pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-100 rounded-xl text-xs font-black text-slate-700 appearance-none focus:outline-none focus:border-emerald-500 transition-all cursor-pointer"
+                    >
+                      {monthOptions.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none group-hover/filter:text-emerald-500 transition-colors" />
+                  </div>
                </div>
 
                <div className="overflow-x-auto">
@@ -399,7 +429,7 @@ export const ExpenseForm: React.FC = () => {
                        </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 font-sans">
-                       {requests.map((req) => (
+                       {filteredRequests.map((req) => (
                           <tr 
                             key={req.id} 
                             onClick={() => setSelectedRequest(req)}
@@ -435,7 +465,7 @@ export const ExpenseForm: React.FC = () => {
                              </td>
                           </tr>
                        ))}
-                       {requests.length === 0 && !loading && (
+                       {filteredRequests.length === 0 && !loading && (
                           <tr>
                              <td colSpan={4} className="py-32 text-center">
                                 <div className="flex flex-col items-center gap-3">
@@ -455,15 +485,17 @@ export const ExpenseForm: React.FC = () => {
         </div>
 
         {/* 안내 배너 */}
-        <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white relative overflow-hidden premium-shadow">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
-          <div className="flex flex-col md:flex-row gap-8 relative z-10">
-             <div className="w-16 h-16 bg-emerald-500/20 rounded-[2rem] flex items-center justify-center shrink-0 border border-emerald-500/30">
-               <AlertCircle className="w-8 h-8 text-emerald-400" />
+        <div className="bg-slate-900 rounded-[1.5rem] p-6 text-white relative overflow-hidden premium-shadow">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full -mr-16 -mt-16 blur-2xl"></div>
+          <div className="flex items-center gap-4 relative z-10">
+             <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center shrink-0 border border-emerald-500/30">
+               <AlertCircle className="w-5 h-5 text-emerald-400" />
              </div>
              <div>
-               <h3 className="text-xl font-black mb-3 tracking-tight">지출결의 보안 및 규정 안내</h3>
-               <p className="text-slate-400 leading-relaxed font-medium max-w-3xl">
+               <h3 className="text-sm font-black mb-1 flex items-center gap-2">
+                 지출결의 보안 및 규정 안내
+               </h3>
+               <p className="text-[10px] text-slate-400 leading-normal font-medium">
                  모든 지출 결의는 전자증빙(영수증) 첨부가 원칙이며, 허위 신청 시 징계 조치의 대상이 될 수 있습니다. 
                  결제 후 7일 이내 신청을 권장하며, 개인 용도의 지출은 승인을 거부당할 수 있음을 유의하시기 바랍니다.
                </p>
