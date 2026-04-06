@@ -40,6 +40,7 @@ export const ExpenseForm: React.FC = () => {
 
   // 상세 보기 및 수정 관련 상태
   const [selectedRequest, setSelectedRequest] = useState<ExpenseRequest | null>(null);
+  const [editingRequest, setEditingRequest] = useState<ExpenseRequest | null>(null); // 현재 수정 중인 원본 데이터
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -76,8 +77,8 @@ export const ExpenseForm: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      let attachmentUrl = selectedRequest?.attachmentUrl || '';
-      let attachmentName = fileName || selectedRequest?.attachmentName || '';
+      let attachmentUrl = editingRequest?.attachmentUrl || '';
+      let attachmentName = fileName || editingRequest?.attachmentName || '';
       
       // 0. 파일 업로드 로직 (새 파일이 선택된 경우에만)
       if (selectedFile) {
@@ -98,7 +99,7 @@ export const ExpenseForm: React.FC = () => {
         description,
         attachmentName,
         attachmentUrl,
-        status: isEditing ? selectedRequest?.status : 'PENDING',
+        status: isEditing ? (editingRequest?.status || 'PENDING') : 'PENDING',
         updatedAt: new Date().toISOString()
       };
 
@@ -108,6 +109,7 @@ export const ExpenseForm: React.FC = () => {
         alert('지출결의서 수정이 완료되었습니다.');
         setIsEditing(false);
         setEditingId(null);
+        setEditingRequest(null);
         setSelectedRequest(null); // 수정 성공 후 상세 모달 닫기
       } else {
         // 신규 등록
@@ -144,6 +146,8 @@ export const ExpenseForm: React.FC = () => {
     // 수정을 위해 폼 데이터 채우기
     setIsEditing(true);
     setEditingId(req.id);
+    setEditingRequest(req); // 원본 데이터 보관
+    
     setTitle(req.title);
     setAmount(req.amount.toString());
     setDate(req.date);
@@ -162,6 +166,7 @@ export const ExpenseForm: React.FC = () => {
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditingId(null);
+    setEditingRequest(null);
     setTitle('');
     setAmount('');
     setDate('');

@@ -48,24 +48,16 @@ service cloud.firestore {
     match /expenses/{expenseId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid || isManagement()
-      );
-      allow delete: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid || isAdmin()
-      );
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isManagement());
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
     // 휴가 신청 (leaves)
     match /leaves/{leaveId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid || isManagement()
-      );
-      allow delete: if isAuthenticated() && (
-        resource.data.userId == request.auth.uid || isAdmin()
-      );
+      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isManagement());
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
     }
 
     // 기본 규칙: 그 외 모든 컬렉션은 가급적 어드민만 접근 가능하게 방어
