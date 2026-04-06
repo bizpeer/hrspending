@@ -30,7 +30,14 @@ service cloud.firestore {
 
     // 유저/직원 프로필 관리 (UserProfile)
     match /UserProfile/{userId} {
-      allow read, write: if true;
+      // 본인의 프로필은 읽고 쓸 수 있으며, 관리자는 모든 프로필 관리 가능
+      allow read, write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      
+      // 마이그레이션을 위해 자신의 이메일이 등록된 임시 프로필 삭제 허용
+      allow delete: if isAuthenticated() && (resource.data.email == request.auth.token.email);
+      
+      // 로그인 시 이메일로 본인의 임시 프로필을 찾기 위해 리스트 조회 허용
+      allow list: if isAuthenticated();
     }
 
     // 감사 로그 (AuditLogs)

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
-import { doc, getDoc, setDoc, query, collection, where, limit, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, query, collection, where, limit, getDocs, deleteDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
 export type Role = 'ADMIN' | 'SUB_ADMIN' | 'EMPLOYEE';
@@ -63,14 +63,30 @@ export const useAuthStore = create<AuthState>((set) => ({
           const profileDoc = await getDoc(doc(db, 'UserProfile', user.uid));
           let currentData: UserData | null = profileDoc.exists() ? (profileDoc.data() as UserData) : null;
 
-          // 만약 쓰기 권한 에러 등으로 본인 UID 문서가 안 만들어졌다면 임시 문서(temp)를 찾아서 매핑합니다 (우회)
+          // 만약 쓰기 권한 에러 등으로 본인 UID 문서가 안 만들어졌다면 임시 문서(temp)를 찾아서 매핑 후 마이그레이션 합니다.
           if (!currentData && user.email) {
-            console.log("UID document not found. Searching by email for temporary profile...");
-            const q = query(collection(db, 'UserProfile'), where('email', '==', user.email), limit(1));
+            console.log("[Auth] UID document not found. Searching by email for temporary profile...");
+            const q = query(collection(db, 'UserProfile'), where('email', '==', user.email.toLowerCase().trim()), limit(1));
             const fallbackSnap = await getDocs(q);
+            
             if (!fallbackSnap.empty) {
-              currentData = fallbackSnap.docs[0].data() as UserData;
-              currentData.uid = user.uid; // 내부적으로 UID만 덮어씌워 정상 로그인 처리
+              const tempDoc = fallbackSnap.docs[0];
+              const tempData = tempDoc.data() as UserData;
+              console.log("[Auth] Temporary profile found. Migrating to permanent UID document...");
+              
+              currentData = {
+                ...tempData,
+                uid: user.uid // 실제 UID로 업데이트
+              };
+
+              // 1. 실제 UID를 ID로 하는 영구 문서 생성 (보안 규칙이 UID 기반으로 동작하기 위함)
+              await setDoc(doc(db, 'UserProfile', user.uid), currentData);
+              
+              // 2. 기존 임시 문서 삭제 (temp_... 형태의 문서)
+              if (tempDoc.id.startsWith('temp_')) {
+                await deleteDoc(tempDoc.ref);
+                console.log("[Auth] Migration complete. Temporary document deleted.");
+              }
             }
           }
           
