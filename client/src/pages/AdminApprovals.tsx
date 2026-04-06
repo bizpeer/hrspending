@@ -3,9 +3,10 @@ import { collection, query, onSnapshot, doc, updateDoc, orderBy } from 'firebase
 import { db } from '../firebase';
 import { 
   CheckCircle, XCircle, Clock, FileText, Calendar, Filter, User, 
-  Check, X, ShieldCheck, Search, Building, Users 
+  Check, X, ShieldCheck, Search, Building, Users, RotateCcw 
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { useAuthStore } from '../store/authStore';
 
 interface LeaveRequest {
   id: string;
@@ -38,6 +39,7 @@ interface ExpenseRequest {
 }
 
 export const AdminApprovals: React.FC = () => {
+  const { userData } = useAuthStore();
   const [activeTab, setActiveTab] = useState<'LEAVE' | 'EXPENSE'>('LEAVE');
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [expenseRequests, setExpenseRequests] = useState<ExpenseRequest[]>([]);
@@ -82,11 +84,13 @@ export const AdminApprovals: React.FC = () => {
     };
   }, []);
 
-  const handleUpdateStatus = async (collectionName: string, id: string, newStatus: 'APPROVED' | 'REJECTED') => {
+  const handleUpdateStatus = async (collectionName: string, id: string, newStatus: 'APPROVED' | 'REJECTED' | 'PENDING') => {
     try {
-      if (!window.confirm(`이 승인 요청을 ${newStatus === 'APPROVED' ? '승인' : '반려'} 처리하시겠습니까?`)) return;
+      const actionText = newStatus === 'APPROVED' ? '승인' : newStatus === 'REJECTED' ? '반려' : '결재대기(취소)';
+      if (!window.confirm(`이 요청을 ${actionText} 상태로 변경하시겠습니까?${newStatus === 'PENDING' ? '\n(연차 승인 건의 경우 소진된 연차가 자동으로 복구됩니다.)' : ''}`)) return;
+      
       await updateDoc(doc(db, collectionName, id), { status: newStatus });
-      alert('처리가 완료되었습니다.');
+      alert(`${actionText} 처리가 완료되었습니다.`);
     } catch (err: any) {
       alert('상태 업데이트 실패: ' + err.message);
     }
@@ -335,9 +339,22 @@ export const AdminApprovals: React.FC = () => {
                                        </button>
                                     </>
                                  ) : (
-                                    <button className="px-4 py-2 bg-slate-50 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all">
-                                       History
-                                    </button>
+                                    <div className="flex items-center justify-end gap-2.5">
+                                       {/* 최고 관리자(ADMIN)만 되돌리기 가능 */}
+                                       {userData?.role === 'ADMIN' && (
+                                          <button 
+                                             onClick={() => handleUpdateStatus(activeTab === 'LEAVE' ? 'leaves' : 'expenses', req.id, 'PENDING')}
+                                             className="flex items-center gap-2 px-3 py-2.5 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-600 hover:text-white transition-all shadow-sm border border-amber-100 group/undo"
+                                             title="결재취소 및 복구"
+                                          >
+                                             <RotateCcw className="w-4 h-4 group-hover/undo:-rotate-45 transition-transform" />
+                                             <span className="text-[10px] font-black uppercase tracking-tight">Undo</span>
+                                          </button>
+                                       )}
+                                       <button className="px-4 py-2.5 bg-slate-50 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all">
+                                          History
+                                       </button>
+                                    </div>
                                  )}
                               </div>
                            </td>
