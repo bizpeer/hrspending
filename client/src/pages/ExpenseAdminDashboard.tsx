@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { PieChart, DollarSign, Calendar, Filter, Printer } from 'lucide-react';
-// import { format } from 'date-fns';
+import { PieChart, DollarSign, Calendar, Filter, Printer, ChevronRight, TrendingUp, Download, Search, FileText, User } from 'lucide-react';
 
 interface Expense {
   id: string;
@@ -12,7 +11,6 @@ interface Expense {
   applicant: string;
 }
 
-// 목업 데이터
 const MOCK_EXPENSES: Expense[] = [
   { id: '1', title: '팀 회식비', amount: 150000, date: '2026-03-25', category: '식비', status: 'APPROVED', applicant: '홍길동' },
   { id: '2', title: 'AWS 서버비', amount: 850000, date: '2026-03-26', category: '인프라', status: 'APPROVED', applicant: '김개발' },
@@ -24,7 +22,6 @@ export const ExpenseAdminDashboard: React.FC = () => {
   const [startDate, setStartDate] = useState<string>('2026-03-01');
   const [endDate, setEndDate] = useState<string>('2026-03-31');
 
-  // 승인된(APPROVED) 지출만 필터링 후 기간별 조회
   const filteredExpenses = MOCK_EXPENSES.filter((expense) => {
     if (expense.status !== 'APPROVED') return false;
     const expenseDate = new Date(expense.date);
@@ -33,101 +30,188 @@ export const ExpenseAdminDashboard: React.FC = () => {
     return expenseDate >= start && expenseDate <= end;
   });
 
-  // 합계 금액 연산
   const totalAmount = filteredExpenses.reduce((sum, curr) => sum + curr.amount, 0);
 
   return (
-    <div className="flex-1 p-4 md:p-8 bg-gray-50 flex flex-col gap-6 min-h-screen">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-3">
-            <PieChart className="w-6 h-6 md:w-8 md:h-8 text-emerald-500" />
-            지출결의 통합 조회
-          </h1>
-          <p className="text-sm text-gray-500 font-medium mt-1">관리자/대표이사 통합 통계 대시보드</p>
-        </div>
+    <div className="flex-1 p-4 md:p-10 bg-slate-50 min-h-screen">
+      <div className="max-w-7xl mx-auto space-y-10">
         
-        {/* 인쇄 및 PDF 출력 기능을 호출하는 Print 버튼 (인쇄 화면에서는 안 보임) */}
-        <button 
-          onClick={() => window.print()}
-          className="print:hidden px-4 py-2 bg-indigo-600 text-white rounded-lg shadow hover:bg-indigo-700 transition flex items-center gap-2 self-start sm:self-auto"
-        >
-          <Printer className="w-4 h-4" />
-          <span>내역 인쇄 (PDF)</span>
-        </button>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 flex flex-col xl:flex-row gap-6 items-start xl:items-center justify-between">
-        {/* 날짜 필터 영역 (인쇄 시 감춤) */}
-        <div className="print:hidden flex flex-wrap lg:flex-nowrap items-center gap-4 w-full xl:w-auto">
-          <div className="flex flex-col">
-            <label className="text-xs font-semibold text-gray-500 flex items-center gap-1 mb-1">
-              <Calendar className="w-3 h-3" /> 시작일
-            </label>
-            <input 
-              type="date" 
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-          </div>
-          <span className="text-gray-400 font-bold mt-4">~</span>
-          <div className="flex flex-col">
-            <label className="text-xs font-semibold text-gray-500 flex items-center gap-1 mb-1">
-              <Calendar className="w-3 h-3" /> 종료일
-            </label>
-            <input 
-              type="date" 
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="border border-gray-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            />
-          </div>
-          <button className="mt-5 px-4 py-2 bg-gray-800 text-white text-sm rounded shadow hover:bg-gray-700 flex items-center gap-2">
-            <Filter className="w-4 h-4" /> 조회
-          </button>
-        </div>
-
-        {/* 합계 위젯 (인쇄 시 고대비 반영을 위한 텍스트 컬러 조정 가능) */}
-        <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-lg flex items-center gap-4 w-full xl:w-auto min-w-[300px] print:bg-transparent print:border-gray-800">
-          <div className="p-3 bg-emerald-100 text-emerald-600 rounded-full print:border print:border-gray-800">
-            <DollarSign className="w-6 h-6 print:text-black" />
-          </div>
-          <div>
-            <h3 className="text-emerald-800 text-sm font-semibold print:text-gray-900">총 승인 금액 (기간 내)</h3>
-            <p className="text-2xl font-bold text-emerald-900 print:text-black">
-              {totalAmount.toLocaleString()} <span className="text-emerald-700 text-lg">원</span>
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 w-full overflow-hidden">
-        <div className="bg-gray-50 text-gray-600 p-4 font-semibold text-sm border-b grid grid-cols-6 items-center">
-          <span className="col-span-2">지출 항목</span>
-          <span>부서 / 신청자</span>
-          <span>카테고리</span>
-          <span>사용 일자</span>
-          <span className="text-right pr-4">결제 금액</span>
-        </div>
-        <div className="divide-y divide-gray-100">
-          {filteredExpenses.length > 0 ? (
-            filteredExpenses.map((expense) => (
-              <div key={expense.id} className="grid grid-cols-6 p-4 text-sm items-center hover:bg-gray-50">
-                <span className="col-span-2 font-medium text-gray-800">{expense.title}</span>
-                <span className="text-gray-600">{expense.applicant}</span>
-                <span className="inline-block px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs w-auto place-self-start">
-                  {expense.category}
-                </span>
-                <span className="text-gray-500">{expense.date}</span>
-                <span className="text-right font-bold text-gray-900 pr-4">{expense.amount.toLocaleString()}원</span>
+        {/* Page Header */}
+        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 print:hidden">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-emerald-600 rounded-2xl text-white shadow-xl shadow-emerald-100">
+                <PieChart className="w-6 h-6" />
               </div>
-            ))
-          ) : (
-            <div className="p-10 text-center text-gray-500">
-              해당 기간에 승인 완료된 지출결의 건이 없습니다.
+              <h1 className="text-3xl font-black text-slate-900 tracking-tight">지출 분석 대시보드</h1>
             </div>
-          )}
+            <p className="text-slate-500 font-medium tracking-tight">전사 지출 데이터를 시각화하고 통합 리포트를 생성합니다.</p>
+          </div>
+
+          <div className="flex items-center gap-3">
+             <button 
+              onClick={() => window.print()}
+              className="flex items-center gap-2.5 px-6 py-4 bg-white border border-slate-200 text-slate-700 font-black rounded-2xl shadow-xl shadow-slate-100 hover:bg-slate-50 transition-all active:scale-95 shrink-0"
+             >
+                <Printer className="w-5 h-5 text-indigo-500" />
+                <span>PDF 리포트 출력</span>
+             </button>
+             <button className="flex items-center gap-2.5 px-6 py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all active:scale-95 shrink-0">
+                <Download className="w-5 h-5" />
+                <span className="hidden sm:inline">Excel 다운로드</span>
+             </button>
+          </div>
+        </div>
+
+        {/* Analytics Summary Card */}
+        <div className="bg-slate-900 rounded-[3rem] p-8 md:p-12 shadow-2xl relative overflow-hidden group border border-slate-800">
+           <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full -mr-32 -mt-32 blur-3xl group-hover:scale-125 transition-transform duration-1000"></div>
+           <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 items-center">
+              
+              <div className="space-y-4">
+                 <p className="text-emerald-400 font-black uppercase tracking-[0.2em] text-[10px]">Total Approved</p>
+                 <div className="flex items-baseline gap-2">
+                    <h2 className="text-4xl md:text-5xl font-black text-white tracking-tight">
+                       {totalAmount.toLocaleString()}
+                    </h2>
+                    <span className="text-emerald-500 font-black text-xl">KRW</span>
+                 </div>
+                 <div className="flex items-center gap-2 text-emerald-500/80 text-xs font-bold">
+                    <TrendingUp className="w-4 h-4" />
+                    <span>지난 달 대비 12.5% 상승</span>
+                 </div>
+              </div>
+
+              <div className="hidden lg:block h-20 w-px bg-slate-800 mx-auto"></div>
+
+              <div className="space-y-6 print:hidden">
+                 <div className="flex flex-col gap-1.5">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Analysis Period</span>
+                    <div className="flex items-center gap-3 bg-slate-800/50 p-2 rounded-2xl border border-slate-700">
+                       <input 
+                         type="date" 
+                         value={startDate}
+                         onChange={(e) => setStartDate(e.target.value)}
+                         className="bg-transparent text-white font-black text-xs outline-none cursor-pointer"
+                       />
+                       <span className="text-slate-600">~</span>
+                       <input 
+                         type="date" 
+                         value={endDate}
+                         onChange={(e) => setEndDate(e.target.value)}
+                         className="bg-transparent text-white font-black text-xs outline-none cursor-pointer"
+                       />
+                    </div>
+                 </div>
+              </div>
+
+              <div className="flex justify-end print:hidden">
+                 <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                    <DollarSign className="w-8 h-8" />
+                 </div>
+              </div>
+           </div>
+        </div>
+
+        {/* Detailed List Section */}
+        <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden">
+          <div className="p-8 border-b border-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-6 print:pb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-slate-50 text-slate-600 rounded-xl">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-black text-slate-800 tracking-tight">승인 완료 내역</h2>
+                <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mt-0.5">Approved List</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3 print:hidden">
+              <div className="relative group">
+                <input 
+                  type="text" 
+                  placeholder="항목 또는 신청자 검색..." 
+                  className="pl-11 pr-5 py-3.5 bg-slate-50 border border-slate-100 rounded-2xl focus:border-emerald-500 focus:bg-white outline-none transition-all font-bold text-xs text-slate-700 w-64 shadow-inner"
+                />
+                <Search className="w-4 h-4 text-slate-300 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-emerald-500 transition-colors" />
+              </div>
+              <button className="p-3.5 bg-slate-50 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-2xl transition-all border border-slate-100">
+                <Filter className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-slate-50/50">
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">일자 / 분류</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">지출 및 증빙 항목</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">신청자 정보</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">최종 승인 금액</th>
+                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right print:hidden">상세</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filteredExpenses.length > 0 ? (
+                  filteredExpenses.map((expense) => (
+                    <tr key={expense.id} className="hover:bg-slate-50/80 transition-all group">
+                      <td className="px-8 py-6">
+                        <div className="space-y-1">
+                           <div className="flex items-center gap-2 text-xs font-black text-slate-400">
+                              <Calendar className="w-3.5 h-3.5" />
+                              {expense.date}
+                           </div>
+                           <span className="inline-block px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-lg text-[9px] font-black tracking-widest uppercase border border-emerald-100">
+                             {expense.category}
+                           </span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                         <span className="text-sm font-black text-slate-800 group-hover:text-emerald-600 transition-colors cursor-default">
+                           {expense.title}
+                         </span>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-3">
+                           <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
+                              <User className="w-4 h-4 text-slate-400" />
+                           </div>
+                           <span className="text-xs font-black text-slate-700">{expense.applicant}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        <span className="text-sm font-black text-slate-900 group-hover:scale-110 inline-block transition-transform">
+                          {expense.amount.toLocaleString()} <span className="text-[10px] text-slate-400 ml-0.5">원</span>
+                        </span>
+                      </td>
+                      <td className="px-8 py-6 text-right print:hidden">
+                        <button className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all">
+                           <ChevronRight className="w-5 h-5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5} className="py-32 text-center">
+                       <FileText className="w-16 h-16 text-slate-100 mx-auto mb-4" />
+                       <p className="text-slate-400 font-black tracking-tight text-lg">해당 기간 내 승인된 내역이 없습니다.</p>
+                       <p className="text-slate-300 text-sm font-medium mt-1">필터 조건을 변경하여 다시 조회해 보세요.</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          
+          <div className="p-8 bg-slate-50/50 border-t border-slate-50 flex items-center justify-between">
+             <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Count:</span>
+                <span className="text-xs font-black text-slate-900">{filteredExpenses.length} 건</span>
+             </div>
+             <p className="text-[10px] text-slate-300 font-bold italic print:block hidden">이 리포트는 Stitch HR 시스템에 의해 자동 생성되었습니다.</p>
+          </div>
         </div>
       </div>
     </div>
