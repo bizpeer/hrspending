@@ -17,111 +17,76 @@ export const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
   const isDirector = userRole === 'ADMIN' || isMaster;
   const isManagement = isHR || isFinance || isDirector;
 
+  const NavItem = ({ to, icon: Icon, label, colorClass = 'indigo' }: { to: string, icon: any, label: string, colorClass?: string }) => (
+    <NavLink 
+      to={to} 
+      className={({ isActive }) => `
+        group flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 relative overflow-hidden
+        ${isActive 
+          ? `bg-${colorClass}-600/10 text-${colorClass}-400 shadow-[inset_0_0_20px_rgba(99,102,241,0.05)]` 
+          : 'hover:bg-slate-800/50 text-slate-400 hover:text-slate-200'
+        }
+      `}
+    >
+      {({ isActive }) => (
+        <>
+          <Icon className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110 ${isActive ? `text-${colorClass}-400` : 'text-slate-500'}`} />
+          <span className="font-semibold tracking-tight">{label}</span>
+          {isActive && (
+            <div className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-${colorClass}-500 rounded-r-full shadow-[0_0_15px_rgba(99,102,241,0.5)]`} />
+          )}
+        </>
+      )}
+    </NavLink>
+  );
+
   return (
-    <div className="w-64 min-h-screen bg-gray-900 text-white flex flex-col p-4 shadow-xl">
-      <div className="flex items-center justify-between mb-8 px-2">
-        <div className="text-2xl font-bold text-indigo-400">HR Flow</div>
-        {/* 우측 상단 알림 종(벨) 컴포넌트 탑재 */}
+    <div className="w-64 h-full bg-slate-900 flex flex-col p-6 border-r border-slate-800/50 relative overflow-hidden">
+      {/* Decorative Gradient Background */}
+      <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-indigo-600/5 to-transparent opacity-50 pointer-events-none"></div>
+
+      <div className="flex items-center justify-between mb-10 relative z-10">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center font-black text-white italic shadow-lg shadow-indigo-900/20">HF</div>
+          <div className="text-2xl font-black tracking-tighter text-white">HR <span className="text-indigo-400">FLOW</span></div>
+        </div>
         <NotificationBell currentUserId={user?.uid || ''} />
       </div>
       
-      <nav className="flex-1 space-y-2">
-        <NavLink 
-          to="/dashboard" 
-          className={({ isActive }) => `flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${isActive ? 'bg-indigo-600 text-white' : 'hover:bg-gray-800 text-gray-300'}`}
-        >
-          <Home className="w-5 h-5" />
-          <span>대시보드</span>
-        </NavLink>
-        
-        {/* 비로그인 시 클릭하면 팝업 유도 (ProtectedRoute가 처리하지만 명시적 연동) */}
-        <NavLink 
-          to="/leave" 
-          className={({ isActive }) => `flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${isActive ? 'bg-indigo-600 text-white' : 'hover:bg-gray-800 text-gray-300'}`}
-        >
-          <CalendarClock className="w-5 h-5" />
-          <span>내 휴가 및 근태</span>
-        </NavLink>
-
-        <NavLink 
-          to="/expense" 
-          className={({ isActive }) => `flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${isActive ? 'bg-emerald-600 text-white' : 'hover:bg-gray-800 text-gray-300'}`}
-        >
-          <FileText className="w-5 h-5" />
-          <span>지출결의 신청</span>
-        </NavLink>
-
-        <NavLink 
-          to="/board" 
-          className={({ isActive }) => `flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${isActive ? 'bg-rose-600 text-white' : 'hover:bg-gray-800 text-gray-300'}`}
-        >
-          <BookOpen className="w-5 h-5" />
-          <span>공지사항 게시판</span>
-        </NavLink>
+      <nav className="flex-1 space-y-2 relative z-10">
+        <NavItem to="/dashboard" icon={Home} label="대시보드" />
+        <NavItem to="/leave" icon={CalendarClock} label="내 휴가 및 근태" />
+        <NavItem to="/expense" icon={FileText} label="지출결의 신청" colorClass="emerald" />
+        <NavItem to="/board" icon={BookOpen} label="공지사항 게시판" colorClass="rose" />
 
         {isManagement && (
-          <div className="pt-6 pb-2">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2">관리자 메뉴</p>
+          <div className="pt-8 pb-3 px-4">
+            <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em]">Management</p>
           </div>
         )}
 
-        {isManagement && (
-          <NavLink 
-            to="/admin/approvals" 
-            className={({ isActive }) => `flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${isActive ? 'bg-indigo-600 text-white' : 'hover:bg-gray-800 text-gray-300'}`}
-          >
-            <CheckSquare className="w-5 h-5" />
-            <span>결재/승인 관리함</span>
-          </NavLink>
-        )}
-
-        {isHR && (
-          <NavLink 
-            to="/admin/organization" 
-            className={({ isActive }) => `flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${isActive ? 'bg-indigo-600 text-white' : 'hover:bg-gray-800 text-gray-300'}`}
-          >
-            <Network className="w-5 h-5" />
-            <span>조직관리</span>
-          </NavLink>
-        )}
-
-        {isDirector && (
-          <NavLink 
-            to="/admin/finance-stats" 
-            className={({ isActive }) => `flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${isActive ? 'bg-emerald-600 text-white' : 'hover:bg-gray-800 text-gray-300'}`}
-          >
-            <PieChart className="w-5 h-5" />
-            <span>지출결의 통합 조회</span>
-          </NavLink>
-        )}
-
-        {isDirector && (
-          <NavLink 
-            to="/admin/settings" 
-            className={({ isActive }) => `flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors ${isActive ? 'bg-indigo-600 text-white' : 'hover:bg-gray-800 text-gray-300'}`}
-          >
-            <Settings className="w-5 h-5" />
-            <span>시스템 설정</span>
-          </NavLink>
-        )}
+        {isManagement && <NavItem to="/admin/approvals" icon={CheckSquare} label="결재/승인 관리함" />}
+        {isHR && <NavItem to="/admin/organization" icon={Network} label="조직관리" />}
+        {isDirector && <NavItem to="/admin/finance-stats" icon={PieChart} label="지출결의 통합 조회" colorClass="emerald" />}
+        {isDirector && <NavItem to="/admin/settings" icon={Settings} label="시스템 설정" colorClass="slate" />}
       </nav>
 
-      <div className="mt-auto pt-4 border-t border-gray-800">
+      <div className="mt-auto pt-6 border-t border-slate-800 relative z-10">
         {!user ? (
           <button 
             onClick={() => setLoginModalOpen(true)}
-            className="flex w-full items-center space-x-3 px-3 py-2 text-gray-400 hover:text-white transition-colors"
+            className="flex w-full items-center space-x-3 px-4 py-3 text-slate-400 hover:text-white transition-all rounded-xl hover:bg-slate-800/50 group"
           >
-            <LogIn className="w-5 h-5 text-indigo-400" />
-            <span>로그인</span>
+            <LogIn className="w-5 h-5 text-indigo-400 group-hover:translate-x-1 transition-transform" />
+            <span className="font-bold tracking-tight">로그인</span>
           </button>
         ) : (
           <button 
             onClick={() => logout()}
-            className="flex w-full items-center space-x-3 px-3 py-2 text-gray-400 hover:text-rose-400 transition-colors"
+            className="flex w-full items-center space-x-3 px-4 py-3 text-slate-500 hover:text-rose-400 transition-all rounded-xl hover:bg-rose-500/5 group"
           >
-            <LogOut className="w-5 h-5" />
-            <span>로그아웃</span>
+            <LogOut className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+            <span className="font-bold tracking-tight">로그아웃</span>
           </button>
         )}
       </div>
