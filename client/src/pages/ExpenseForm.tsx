@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { UploadCloud, CheckCircle, FileText, History, AlertCircle, Send, Loader2, DollarSign } from 'lucide-react';
-import { addDoc, collection, query, orderBy, onSnapshot, where } from 'firebase/firestore';
+import { addDoc, collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
 
@@ -36,13 +36,13 @@ export const ExpenseForm: React.FC = () => {
 
     const q = query(
       collection(db, 'expenses'),
-      where('userId', '==', user.uid),
       orderBy('createdAt', 'desc')
     );
-
+    
     const unsubscribe = onSnapshot(q, (snap) => {
       const allReqs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ExpenseRequest));
-      setRequests(allReqs);
+      // 클라이언트 사이드 필터링 (복합 인덱스 에러 방지)
+      setRequests(allReqs.filter(req => req.userId === (user?.uid || userData?.uid)));
       setLoading(false);
     }, (error) => {
       console.error("Firestore Subscribe Error:", error);

@@ -101,6 +101,10 @@ export const AdminApprovals: React.FC = () => {
 
   // 필터 로직 함수
   const applyFilters = (requests: any[]) => {
+    // 0. 현재 로그인한 사용자의 실시간 최신 권한 확인 (새롭게 임명된 관리자 대응)
+    const currentProfile = employees.find(e => e.uid === userData?.uid);
+    const currentUserRole = currentProfile?.role || userData?.role;
+
     return requests.filter(req => {
       // 1. 상태 필터 (대기/승인/반려/전체)
       const statusMatch = filter === 'ALL' || req.status === filter;
@@ -119,9 +123,8 @@ export const AdminApprovals: React.FC = () => {
       const teamMatch = selectedTeam === 'ALL' || userTeamId === selectedTeam;
 
       // 4. 부관리자(SUB_ADMIN) 보안 필터링: 본인 본부 내역만 노출
-      if (userData?.role === 'SUB_ADMIN') {
-        const subAdminProfile = employees.find(e => e.uid === userData.uid);
-        const subAdminTeam = teams.find(t => t.id === subAdminProfile?.teamId);
+      if (currentUserRole === 'SUB_ADMIN') {
+        const subAdminTeam = teams.find(t => t.id === currentProfile?.teamId);
         const subAdminDivId = subAdminTeam?.divisionId;
         
         // 본인 본부와 일치하지 않으면 제외
