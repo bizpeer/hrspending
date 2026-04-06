@@ -537,62 +537,62 @@ export const AdminApprovals: React.FC = () => {
                     </div>
                  </div>
 
-                 {/* 첨부파일 섹션 추가 */}
-                 {(selectedRequest.attachmentUrl || selectedRequest.attachmentName) && (
-                    <div className="space-y-4 pt-6 border-t border-slate-100">
-                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">첨부 증빙 자료 (Attachments)</span>
-                        
-                        {/* 이미지 미리보기 추가 */}
-                        {selectedRequest.attachmentUrl && ((['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].some(ext => selectedRequest.attachmentUrl?.toLowerCase().includes(ext)) || 
-                          selectedRequest.attachmentUrl.includes('image%2F')) && (
-                           <div className="mb-4 rounded-2xl overflow-hidden border border-slate-200 bg-slate-50">
-                              <img 
-                                 src={selectedRequest.attachmentUrl} 
-                                 alt="Attachment Preview" 
-                                 className="w-full h-auto max-h-[300px] object-contain cursor-pointer hover:scale-[1.02] transition-transform"
-                                 onClick={() => window.open(selectedRequest.attachmentUrl, '_blank')}
-                              />
-                           </div>
-                        ))}
+                 {/* 첨부파일 섹션 - 항상 제목은 표시하여 존재감을 인지시킴 */}
+                 <div className="space-y-4 pt-6 border-t border-slate-100">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">첨부 증빙 자료 (Attachments)</span>
+                    
+                    {selectedRequest.attachmentUrl ? (
+                       <>
+                          {/* 이미지 미리보기 (URL이 있고 이미지 형식인 경우) */}
+                          {(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'].some(ext => selectedRequest.attachmentUrl?.toLowerCase().includes(ext)) || 
+                            selectedRequest.attachmentUrl?.includes('image%2F')) && (
+                             <div className="mb-4 rounded-2xl overflow-hidden border border-slate-200 bg-slate-50">
+                                <img 
+                                   src={selectedRequest.attachmentUrl} 
+                                   alt="Attachment Preview" 
+                                   className="w-full h-auto max-h-[300px] object-contain cursor-pointer hover:scale-[1.02] transition-transform"
+                                   onClick={() => window.open(selectedRequest.attachmentUrl, '_blank')}
+                                />
+                             </div>
+                          )}
 
-                        {selectedRequest.attachmentUrl ? (
-                           <div className="flex items-center justify-between p-5 bg-white border-2 border-indigo-50 rounded-2xl shadow-sm hover:border-indigo-200 transition-all group/file">
-                              <div className="flex items-center gap-4">
-                                 <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500 group-hover/file:bg-indigo-600 group-hover/file:text-white transition-all">
-                                    <FileText className="w-6 h-6" />
-                                 </div>
-                                 <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-black text-slate-800 truncate">{selectedRequest.attachmentName || '첨부 파일'}</p>
-                                    <p className="text-[10px] font-bold text-slate-400">클릭 시 안전한 보안 링크로 파일을 확인합니다.</p>
-                                 </div>
+                          <div className="flex items-center justify-between p-5 bg-white border-2 border-indigo-50 rounded-2xl shadow-sm hover:border-indigo-200 transition-all group/file">
+                             <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500 group-hover/file:bg-indigo-600 group-hover/file:text-white transition-all">
+                                   <FileText className="w-6 h-6" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                   <p className="text-sm font-black text-slate-800 truncate">{selectedRequest.attachmentName || '첨부 파일 (확인이 필요한 경우 클릭)'}</p>
+                                   <p className="text-[10px] font-bold text-slate-400">클릭 시 안전한 보안 링크로 파일을 확인합니다.</p>
+                                </div>
+                             </div>
+                             <button 
+                                onClick={() => window.open(selectedRequest.attachmentUrl, '_blank')}
+                                className="px-5 py-2.5 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 shrink-0 ml-4"
+                             >
+                                Download / View
+                             </button>
+                          </div>
+                       </>
+                    ) : selectedRequest.attachmentName ? (
+                       <div className="flex items-center justify-between p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl group/file">
+                          <div className="flex items-center gap-4">
+                             <div className="w-12 h-12 bg-slate-200 rounded-xl flex items-center justify-center text-slate-400">
+                                <FileText className="w-6 h-6" />
                               </div>
-                              <button 
-                                 onClick={() => window.open(selectedRequest.attachmentUrl, '_blank')}
-                                 className="px-5 py-2.5 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 shrink-0 ml-4"
-                              >
-                                 Download / View
-                              </button>
-                           </div>
-                        ) : selectedRequest.attachmentName ? (
-                           <div className="flex items-center justify-between p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl group/file">
-                              <div className="flex items-center gap-4">
-                                 <div className="w-12 h-12 bg-slate-200 rounded-xl flex items-center justify-center text-slate-400">
-                                    <FileText className="w-6 h-6" />
-                                 </div>
-                                 <div>
-                                    <p className="text-sm font-black text-slate-700 truncate max-w-[300px]">{selectedRequest.attachmentName}</p>
-                                    <p className="text-[10px] font-bold text-rose-400">파일 데이터가 존재하지 않는 이전 요청 건입니다.</p>
-                                 </div>
-                              </div>
-                           </div>
-                        ) : (
-                           <div className="p-10 border-2 border-slate-100 border-dashed rounded-3xl flex flex-col items-center gap-3 text-slate-300 bg-slate-50/30">
-                              <AlertCircle className="w-8 h-8 opacity-20" />
-                              <p className="text-xs font-bold italic">첨부된 증빙 서류가 없습니다.</p>
-                           </div>
-                        )}
-                    </div>
-                 )}
+                             <div>
+                                <p className="text-sm font-black text-slate-700 truncate max-w-[300px]">{selectedRequest.attachmentName}</p>
+                                <p className="text-[10px] font-bold text-rose-400">파일 데이터가 존재하지 않는 이전 요청 건입니다.</p>
+                             </div>
+                          </div>
+                       </div>
+                    ) : (
+                       <div className="p-10 border-2 border-slate-100 border-dashed rounded-3xl flex flex-col items-center gap-3 text-slate-300 bg-slate-50/30">
+                          <AlertCircle className="w-8 h-8 opacity-20" />
+                          <p className="text-xs font-bold italic">첨부된 증빙 서류가 없습니다.</p>
+                       </div>
+                    )}
+                 </div>
               </div>
 
               {/* Modal Footer */}
