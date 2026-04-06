@@ -21,6 +21,7 @@ interface LeaveRequest {
   requestDays: number;
   teamId?: string;
   divisionId?: string;
+  attachmentName?: string;
 }
 
 interface ExpenseRequest {
@@ -36,6 +37,7 @@ interface ExpenseRequest {
   createdAt: string;
   teamId?: string;
   divisionId?: string;
+  attachmentName?: string;
 }
 
 export const AdminApprovals: React.FC = () => {
@@ -529,6 +531,34 @@ export const AdminApprovals: React.FC = () => {
                        <p className="text-xs font-bold text-amber-600">현재 이 문서는 <span className="underline">{selectedRequest.status === 'PENDING' ? '검토 중' : selectedRequest.status}</span> 상태입니다.</p>
                     </div>
                  </div>
+
+                 {/* 첨부파일 섹션 추가 */}
+                 {(selectedRequest.attachmentName || activeTab === 'EXPENSE') && (
+                    <div className="space-y-4 pt-6 border-t border-slate-100">
+                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">첨부 증빙 자료 (Attachments)</span>
+                       {selectedRequest.attachmentName ? (
+                          <div className="flex items-center justify-between p-5 bg-white border-2 border-indigo-50 rounded-2xl shadow-sm hover:border-indigo-200 transition-all group/file">
+                             <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500 group-hover/file:bg-indigo-600 group-hover/file:text-white transition-all">
+                                   <FileText className="w-6 h-6" />
+                                </div>
+                                <div>
+                                   <p className="text-sm font-black text-slate-800 truncate max-w-[300px]">{selectedRequest.attachmentName}</p>
+                                   <p className="text-[10px] font-bold text-slate-400">파일 형식이 암호화되어 안전하게 보관 중입니다.</p>
+                                </div>
+                             </div>
+                             <button className="px-5 py-2.5 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100">
+                                Download / View
+                             </button>
+                          </div>
+                       ) : (
+                          <div className="p-10 border-2 border-slate-100 border-dashed rounded-3xl flex flex-col items-center gap-3 text-slate-300 bg-slate-50/30">
+                             <AlertCircle className="w-8 h-8 opacity-20" />
+                             <p className="text-xs font-bold italic">첨부된 증빙 서류가 없습니다.</p>
+                          </div>
+                       )}
+                    </div>
+                 )}
               </div>
 
               {/* Modal Footer */}

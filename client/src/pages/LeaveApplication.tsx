@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, History, Send, Loader2, AlertCircle } from 'lucide-react';
+import { Calendar, History, Send, Loader2, AlertCircle, UploadCloud, FileText } from 'lucide-react';
 import { collection, query, onSnapshot, addDoc, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
@@ -31,11 +31,13 @@ export const LeaveApplication: React.FC = () => {
     startDate: string;
     endDate: string;
     reason: string;
+    fileName: string;
   }>({
     type: 'annual',
     startDate: format(new Date(), 'yyyy-MM-dd'),
     endDate: format(new Date(), 'yyyy-MM-dd'),
-    reason: ''
+    reason: '',
+    fileName: ''
   });
 
   // 연차 계산 (실시간 집계 로직으로 변경)
@@ -100,6 +102,7 @@ export const LeaveApplication: React.FC = () => {
         startDate: formData.startDate || '',
         endDate: formData.endDate || '',
         reason: formData.reason || '',
+        attachmentName: formData.fileName || '',
         status: 'PENDING',
         requestDays: days || 0,
         createdAt: new Date().toISOString()
@@ -108,7 +111,8 @@ export const LeaveApplication: React.FC = () => {
       alert("휴가 신청이 완료되었습니다.");
       setFormData({
         ...formData,
-        reason: ''
+        reason: '',
+        fileName: ''
       });
     } catch (err) {
       alert("신청 실패: " + (err as Error).message);
@@ -212,6 +216,26 @@ export const LeaveApplication: React.FC = () => {
                     value={formData.reason}
                     onChange={(e) => setFormData({...formData, reason: e.target.value})}
                   />
+                </div>
+
+                <div className="space-y-1.5">
+                   <label className="text-xs font-black text-slate-500 uppercase tracking-widest px-1">증빙 파일 (병가/경조사 등)</label>
+                   <label className="flex items-center justify-center w-full h-32 px-4 transition-all bg-slate-50 border-2 border-slate-100 border-dashed rounded-[2rem] cursor-pointer hover:border-indigo-500 hover:bg-indigo-50/30 group/upload">
+                      <div className="flex flex-col items-center gap-2">
+                         <UploadCloud className="w-8 h-8 text-slate-300 group-hover/upload:text-indigo-500 transition-colors" />
+                         <span className="text-xs font-black text-slate-400 group-hover/upload:text-indigo-600">
+                           {formData.fileName ? formData.fileName : '증빙 서류 이미지 또는 PDF 업로드'}
+                         </span>
+                      </div>
+                      <input 
+                        type="file" className="hidden" accept="image/*,.pdf" 
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setFormData({...formData, fileName: e.target.files[0].name});
+                          }
+                        }} 
+                      />
+                   </label>
                 </div>
 
                 <button 

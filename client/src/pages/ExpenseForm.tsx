@@ -66,6 +66,7 @@ export const ExpenseForm: React.FC = () => {
         date,
         category,
         description,
+        attachmentName: fileName || '',
         status: 'PENDING',
         createdAt: new Date().toISOString()
       });
