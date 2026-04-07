@@ -3,7 +3,7 @@ import { Clock, LogIn, LogOut, Loader2, Calendar as CalendarIcon, MapPin, CheckC
 import { useAuthStore } from '../store/authStore';
 import { collection, query, where, onSnapshot, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfWeek, eachDayOfInterval, isSameDay, isToday, addMonths, subMonths, isSameMonth } from 'date-fns';
 import { calculateLeaveEntitlement } from '../utils/leaveCalculator';
 
 interface AttendanceRecord {
@@ -21,6 +21,59 @@ export const AttendanceDashboard: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // 캘린더 및 관리자 조회용 상태
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [monthlyRecords, setMonthlyRecords] = useState<AttendanceRecord[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
+
+  // 초기 selectedUserId 설정
+  useEffect(() => {
+    if (user?.uid && !selectedUserId) {
+      setSelectedUserId(user.uid);
+    }
+  }, [user?.uid, selectedUserId]);
+
+  // 관리자일 경우 전체 사용자 목록 페칭
+  useEffect(() => {
+    if (userData?.role === 'ADMIN') {
+      const q = query(collection(db, 'UserProfile'));
+      const unsubscribe = onSnapshot(q, (snap) => {
+        setAllUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      });
+      return () => unsubscribe();
+    }
+  }, [userData?.role]);
+
+  // 선택된 사용자의 월별 근태 기록 구독
+  useEffect(() => {
+    if (!selectedUserId) return;
+
+    setMonthlyLoading(true);
+    // KST 기준 월 시작/종료 계산
+    const start = startOfMonth(currentMonth).toISOString();
+    const end = endOfMonth(currentMonth).toISOString();
+
+    const q = query(
+      collection(db, 'attendance'),
+      where('userId', '==', selectedUserId),
+      where('timestamp', '>=', start),
+      where('timestamp', '<=', end)
+    );
+
+    const unsubscribe = onSnapshot(q, (snap) => {
+      const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+      setMonthlyRecords(docs);
+      setMonthlyLoading(false);
+    }, (err) => {
+      console.error("Monthly Attendance Error:", err);
+      setMonthlyLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [selectedUserId, currentMonth]);
 
   // KST 실시간 시계
   useEffect(() => {
@@ -295,6 +348,143 @@ export const AttendanceDashboard: React.FC = () => {
                   <p className="text-slate-400 text-sm">오늘 첫 출근 버튼을 눌러 기록을 시작하세요.</p>
                 </div>
               )}
+            </div>
+
+            {/* [NEW] 월별 근태 캘린더 (Red Box 영역) */}
+            <div className="mt-8 bg-white rounded-[2.5rem] shadow-xl p-8 border border-slate-100">
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                <div>
+                  <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3">
+                    <CalendarIcon className="w-7 h-7 text-indigo-500" />
+                    월별 근태 현황
+                  </h2>
+                  <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">
+                    Monthly Performance
+                  </p>
+                  {monthlyLoading && (
+                    <div className="flex items-center gap-2 mt-2 text-indigo-500">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span className="text-[10px] font-bold">로딩 중...</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  {/* 관리자 전용 사용자 선택 */}
+                  {userData?.role === 'ADMIN' && (
+                    <select
+                      value={selectedUserId}
+                      onChange={(e) => setSelectedUserId(e.target.value)}
+                      className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      {allUsers.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name} ({u.email})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
+                  {/* 월 이동 네비게이션 */}
+                  <div className="flex items-center bg-slate-50 rounded-xl p-1 border border-slate-200">
+                    <button
+                      onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+                      className="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all"
+                    >
+                      <History className="w-4 h-4 text-slate-600 rotate-180" />
+                    </button>
+                    <span className="px-4 text-sm font-black text-slate-800 min-w-[90px] text-center">
+                      {format(currentMonth, 'yyyy. MM')}
+                    </span>
+                    <button
+                      onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+                      className="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all"
+                    >
+                      <History className="w-4 h-4 text-slate-600" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 캘린더 그리드 */}
+              <div className="mb-6">
+                <div className="grid grid-cols-7 mb-2 border-b border-slate-50 pb-2">
+                  {['일', '월', '화', '수', '목', '금', '토'].map((day) => (
+                    <div key={day} className="text-center text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                      {day}
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {/* 시작 요일 맞추기 위한 빈 공간 */}
+                  {Array.from({ length: startOfWeek(startOfMonth(currentMonth)).getDay() === 0 ? startOfWeek(startOfMonth(currentMonth)).getDay() : startOfWeek(startOfMonth(currentMonth)).getDay() }).map((_, i) => (
+                    <div key={`empty-${i}`} className="aspect-square"></div>
+                  ))}
+                  
+                  {eachDayOfInterval({
+                    start: startOfMonth(currentMonth),
+                    end: endOfMonth(currentMonth)
+                  }).map((day) => {
+                    const dayRecords = monthlyRecords.filter(r => isSameDay(new Date(r.timestamp), day));
+                    const hasCheckIn = dayRecords.some(r => r.type === 'IN');
+                    const hasCheckOut = dayRecords.some(r => r.type === 'OUT');
+                    const isTodayLocal = isToday(day);
+                    const isCurrentMonth = isSameMonth(day, currentMonth);
+
+                    return (
+                      <div 
+                        key={day.toString()}
+                        className={`aspect-square relative flex items-center justify-center rounded-2xl transition-all border ${
+                          isTodayLocal ? 'border-indigo-200 bg-indigo-50' : 'border-transparent hover:bg-slate-50'
+                        } ${!isCurrentMonth ? 'opacity-20' : ''}`}
+                      >
+                        <span className={`text-sm font-bold ${
+                          isTodayLocal ? 'text-indigo-600' : 'text-slate-700'
+                        }`}>
+                          {format(day, 'd')}
+                        </span>
+                        
+                        {/* 출근 인디케이터 (파란색) */}
+                        {hasCheckIn && (
+                          <div className="absolute top-1.5 right-1.5">
+                            <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full shadow-sm shadow-indigo-200"></div>
+                          </div>
+                        )}
+                        {/* 퇴근 인디케이터 */}
+                        {hasCheckOut && (
+                          <div className="absolute bottom-1.5 right-1.5">
+                            <div className="w-1.5 h-1.5 bg-rose-400 rounded-full shadow-sm shadow-rose-100"></div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 월별 통계 요약 */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-3xl border border-slate-100">
+                <div className="text-center md:border-r border-slate-200 last:border-0 px-2">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">근무일수</p>
+                  <p className="text-lg font-black text-slate-700">
+                    {new Set(monthlyRecords.filter(r => r.type === 'IN').map(r => format(new Date(r.timestamp), 'yyyy-MM-dd'))).size}일
+                  </p>
+                </div>
+                <div className="text-center md:border-r border-slate-200 last:border-0 px-2">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">정시퇴근</p>
+                  <p className="text-lg font-black text-emerald-500">
+                    {monthlyRecords.filter(r => r.type === 'OUT').length}회
+                  </p>
+                </div>
+                <div className="text-center md:border-r border-slate-200 last:border-0 px-2">
+                  <p className="text-[9px] font-black text-slate-700 uppercase tracking-widest mb-1">연차사용</p>
+                  <p className="text-lg font-black text-indigo-600">0일</p>
+                </div>
+                <div className="text-center px-2">
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">지각</p>
+                  <p className="text-lg font-black text-rose-500">0회</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
