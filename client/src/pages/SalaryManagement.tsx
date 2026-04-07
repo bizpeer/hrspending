@@ -32,16 +32,16 @@ const calculateNetPay = (emp: Partial<UserData> & { currentVal?: number }) => {
 
   const taxableIncome = Math.max(0, monthlyGross - nonTaxable);
 
-  // 1. 국민연금 (4.5%, 상한액 265,500원, 하한액 17,550원)
-  let pension = Math.floor(taxableIncome * 0.045);
+  // 1. 국민연금 (4.75%, 상한액 265,500원, 하한액 17,550원)
+  let pension = Math.floor(taxableIncome * 0.0475);
   if (pension > 265500) pension = 265500;
   if (taxableIncome > 0 && pension < 17550) pension = 17550;
 
-  // 2. 건강보험 (3.545%)
-  const health = Math.floor(taxableIncome * 0.03545);
+  // 2. 건강보험 (3.595%)
+  const health = Math.floor(taxableIncome * 0.03595);
 
-  // 3. 장기요양보험 (건강보험의 12.95%)
-  const longTerm = Math.floor(health * 0.1295);
+  // 3. 장기요양보험 (건강보험의 13.14%)
+  const longTerm = Math.floor(health * 0.1314);
 
   // 4. 고용보험 (0.9%)
   const employment = Math.floor(taxableIncome * 0.009);
@@ -475,15 +475,15 @@ export const SalaryManagement: React.FC = () => {
                             </h3>
                             <div className="space-y-3 bg-slate-50/50 p-4 rounded-xl text-sm font-medium border border-slate-100">
                                <div className="flex justify-between items-center">
-                                  <span className="text-slate-500 text-xs">국민연금 (4.5%)</span>
+                                  <span className="text-slate-500 text-xs">국민연금 (4.75%)</span>
                                   <span className="font-bold text-slate-800">{res.pension.toLocaleString()}원</span>
                                </div>
                                <div className="flex justify-between items-center">
-                                  <span className="text-slate-500 text-xs">건강보험 (3.545%)</span>
+                                  <span className="text-slate-500 text-xs">건강보험 (3.595%)</span>
                                   <span className="font-bold text-slate-800">{res.health.toLocaleString()}원</span>
                                </div>
                                <div className="flex justify-between items-center">
-                                  <span className="text-slate-500 text-xs">장기요양 (12.95%)</span>
+                                  <span className="text-slate-500 text-xs">장기요양 (13.14%)</span>
                                   <span className="font-bold text-slate-800">{res.longTerm.toLocaleString()}원</span>
                                </div>
                                <div className="flex justify-between items-center border-t border-slate-100 pt-3">
