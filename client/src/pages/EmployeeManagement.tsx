@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Users, Search, Building, Filter, Trash2, UserX, Key, 
-  Clock, ChevronRight, Loader2, ShieldAlert,
-  MapPin, Calendar, LogIn, LogOut, X
+  ChevronRight, Loader2, ShieldAlert,
+  Calendar, X
 } from 'lucide-react';
 import { 
   collection, query, where, onSnapshot, doc, updateDoc, 
@@ -10,7 +10,6 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
-import { format } from 'date-fns';
 import { useAuthStore } from '../store/authStore';
 
 interface Employee {
@@ -54,7 +53,6 @@ export const EmployeeManagement: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Personnel Info
-  const [activeTab, setActiveTab] = useState<'INFO' | 'RECORDS'>('INFO');
   const [editingInfo, setEditingInfo] = useState({ rrn: '', address: '', phone: '', personalEmail: '' });
   const [isSaving, setIsSaving] = useState(false);
   const isAdmin = userData?.role === 'ADMIN';
@@ -111,30 +109,13 @@ export const EmployeeManagement: React.FC = () => {
   })();
 
   const handleOpenDetail = async (emp: Employee) => {
-    setActiveTab('INFO');
     setEditingInfo({
       rrn: emp.rrn || '',
       address: emp.address || '',
       phone: emp.phone || '',
       personalEmail: emp.personalEmail || ''
     });
-    
-    setLoading(true);
-    try {
-      const q = query(
-        collection(db, 'attendance'), 
-        where('userId', '==', emp.uid),
-        orderBy('timestamp', 'desc')
-      );
-      const snap = await getDocs(q);
-      const records = snap.docs.map(d => ({ id: d.id, ...d.data() } as AttendanceRecord));
-      setSelectedEmpRecords({ emp, records });
-    } catch (e) {
-      console.error("Fetch failed:", e);
-      setSelectedEmpRecords({ emp, records: [] });
-    } finally {
-      setLoading(false);
-    }
+    setSelectedEmpRecords({ emp, records: [] });
   };
 
   const handleSavePersonalInfo = async () => {
@@ -397,123 +378,73 @@ export const EmployeeManagement: React.FC = () => {
               <button onClick={() => setSelectedEmpRecords(null)} className="p-3 bg-slate-50 rounded-2xl text-slate-400 hover:text-slate-900 transition-all"><X className="w-6 h-6" /></button>
             </div>
 
-            {/* Modal Tabs */}
-            <div className="px-10 py-4 bg-slate-50/50 border-b border-slate-100 flex items-center gap-2 shrink-0">
-               <button 
-                  onClick={() => setActiveTab('INFO')}
-                  className={`px-6 py-3 rounded-xl text-xs font-black transition-all ${activeTab === 'INFO' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:bg-white hover:text-slate-600'}`}
-               >
-                  인사 정보 (Personnel)
-               </button>
-               <button 
-                  onClick={() => setActiveTab('RECORDS')}
-                  className={`px-6 py-3 rounded-xl text-xs font-black transition-all ${activeTab === 'RECORDS' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-400 hover:bg-white hover:text-slate-600'}`}
-               >
-                  근태 기록 (Attendance)
-               </button>
-            </div>
-
             <div className="flex-1 overflow-y-auto p-10 premium-scrollbar">
-              {activeTab === 'INFO' ? (
-                <div className="space-y-8 animate-in slide-in-from-left-4 duration-300">
-                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">주민등록번호</label>
-                         <input 
-                            type="text"
-                            value={editingInfo.rrn}
-                            onChange={(e) => setEditingInfo({...editingInfo, rrn: e.target.value})}
-                            disabled={!isAdmin}
-                            placeholder="예: 800101-*******"
-                            className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-indigo-500 outline-none transition-all font-bold disabled:opacity-60"
-                         />
-                      </div>
-                      <div className="space-y-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">개인 이메일</label>
-                         <input 
-                            type="email"
-                            value={editingInfo.personalEmail}
-                            onChange={(e) => setEditingInfo({...editingInfo, personalEmail: e.target.value})}
-                            disabled={!isAdmin}
-                            placeholder="personal@email.com"
-                            className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-indigo-500 outline-none transition-all font-bold disabled:opacity-60"
-                         />
-                      </div>
-                      <div className="space-y-2 md:col-span-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">비상 연락처 (전화번호)</label>
-                         <input 
-                            type="text"
-                            value={editingInfo.phone}
-                            onChange={(e) => setEditingInfo({...editingInfo, phone: e.target.value})}
-                            disabled={!isAdmin}
-                            placeholder="010-0000-0000"
-                            className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-indigo-500 outline-none transition-all font-bold disabled:opacity-60"
-                         />
-                      </div>
-                      <div className="space-y-2 md:col-span-2">
-                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">거주지 주소</label>
-                         <textarea 
-                            rows={3}
-                            value={editingInfo.address}
-                            onChange={(e) => setEditingInfo({...editingInfo, address: e.target.value})}
-                            disabled={!isAdmin}
-                            placeholder="상세 주소를 입력하세요"
-                            className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-indigo-500 outline-none transition-all font-bold disabled:opacity-60 resize-none"
-                         />
-                      </div>
-                   </div>
-
-                   {isAdmin && (
-                     <button 
-                        onClick={handleSavePersonalInfo}
-                        disabled={isSaving}
-                        className="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
-                     >
-                        {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldAlert className="w-5 h-5" />}
-                        인사 정보 저장하기
-                     </button>
-                   )}
-                   
-                   {!isAdmin && (
-                     <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center gap-3">
-                        <ShieldAlert className="w-5 h-5 text-amber-500" />
-                         <p className="text-xs font-bold text-amber-600">이 정보는 최고 관리자(ADMIN)만 수정할 수 있습니다.</p>
-                     </div>
-                   )}
-                </div>
-              ) : (
-                <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
-                  {selectedEmpRecords.records.length > 0 ? (
-                    <div className="space-y-4">
-                      {selectedEmpRecords.records.map((r, idx) => (
-                        <div key={r.id} className="relative pl-10">
-                          {idx !== selectedEmpRecords.records.length - 1 && <div className="absolute left-[19px] top-10 bottom-[-16px] w-[2px] bg-slate-100"></div>}
-                          <div className={`absolute left-0 top-1 w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-md ${r.type === 'IN' ? 'bg-indigo-500' : 'bg-rose-500'}`}>
-                            {r.type === 'IN' ? <LogIn className="w-4 h-4" /> : <LogOut className="w-4 h-4" />}
-                          </div>
-                          <div className="bg-slate-50/50 p-5 rounded-2xl border border-slate-100">
-                             <div className="flex items-center justify-between mb-1">
-                                <span className={`text-[10px] font-black uppercase tracking-widest ${r.type === 'IN' ? 'text-indigo-500' : 'text-rose-500'}`}>{r.type === 'IN' ? 'CHECK-IN' : 'CHECK-OUT'}</span>
-                                <span className="text-[10px] font-bold text-slate-400">{format(new Date(r.timestamp), 'yyyy.MM.dd')}</span>
-                             </div>
-                             <div className="flex items-center justify-between">
-                                <div className="text-xl font-black text-slate-800 tracking-tighter">{format(new Date(r.timestamp), 'HH:mm:ss')}</div>
-                                <div className="flex items-center gap-1.5 text-slate-400 text-xs font-bold">
-                                   <MapPin className="w-3.5 h-3.5" /> {r.location || '본사'}
-                                </div>
-                             </div>
-                          </div>
-                        </div>
-                      ))}
+              <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-300">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">주민등록번호</label>
+                        <input 
+                          type="text"
+                          value={editingInfo.rrn}
+                          onChange={(e) => setEditingInfo({...editingInfo, rrn: e.target.value})}
+                          disabled={!isAdmin}
+                          placeholder="예: 800101-*******"
+                          className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-indigo-500 outline-none transition-all font-bold disabled:opacity-60"
+                        />
                     </div>
-                  ) : (
-                    <div className="py-20 text-center space-y-4">
-                      <Clock className="w-12 h-12 text-slate-200 mx-auto" />
-                      <p className="text-slate-400 font-bold">근태 기록이 존재하지 않습니다.</p>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">개인 이메일</label>
+                        <input 
+                          type="email"
+                          value={editingInfo.personalEmail}
+                          onChange={(e) => setEditingInfo({...editingInfo, personalEmail: e.target.value})}
+                          disabled={!isAdmin}
+                          placeholder="personal@email.com"
+                          className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-indigo-500 outline-none transition-all font-bold disabled:opacity-60"
+                        />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">비상 연락처 (전화번호)</label>
+                        <input 
+                          type="text"
+                          value={editingInfo.phone}
+                          onChange={(e) => setEditingInfo({...editingInfo, phone: e.target.value})}
+                          disabled={!isAdmin}
+                          placeholder="010-0000-0000"
+                          className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-indigo-500 outline-none transition-all font-bold disabled:opacity-60"
+                        />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">거주지 주소</label>
+                        <textarea 
+                          rows={3}
+                          value={editingInfo.address}
+                          onChange={(e) => setEditingInfo({...editingInfo, address: e.target.value})}
+                          disabled={!isAdmin}
+                          placeholder="상세 주소를 입력하세요"
+                          className="w-full px-5 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-indigo-500 outline-none transition-all font-bold disabled:opacity-60 resize-none"
+                        />
+                    </div>
+                  </div>
+
+                  {isAdmin && (
+                    <button 
+                      onClick={handleSavePersonalInfo}
+                      disabled={isSaving}
+                      className="w-full py-5 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldAlert className="w-5 h-5" />}
+                      인사 정보 저장하기
+                    </button>
+                  )}
+                  
+                  {!isAdmin && (
+                    <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-center gap-3">
+                      <ShieldAlert className="w-5 h-5 text-amber-500" />
+                        <p className="text-xs font-bold text-amber-600">이 정보는 최고 관리자(ADMIN)만 수정할 수 있습니다.</p>
                     </div>
                   )}
-                </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
