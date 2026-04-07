@@ -89,6 +89,18 @@ export const AttendanceDashboard: React.FC = () => {
       console.log("[Attendance] Sending data:", attendanceData);
       const docRef = await addDoc(collection(db, 'attendance'), attendanceData);
       console.log("[Attendance] Success! Created doc ID:", docRef.id);
+
+      // 낙관적 업데이트: Firestore 리스너가 트리거되기 전에 UI에 즉시 반영
+      const newRecord: AttendanceRecord = {
+        id: docRef.id,
+        ...attendanceData
+      };
+      setRecords(prev => {
+        // 이미 리스너에 의해 추가되었을 수도 있으므로 ID 중복 체크
+        if (prev.some(r => r.id === docRef.id)) return prev;
+        const updated = [newRecord, ...prev];
+        return updated.sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 10);
+      });
     } catch (e) {
       const error = e as Error;
       console.error("[Attendance] Error during creation:", error);
