@@ -171,6 +171,14 @@ export const AttendanceDashboard: React.FC = () => {
         const updated = [newRecord, ...prev];
         return updated.sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 10);
       });
+
+      // 월별 현황(캘린더) 즉시 반영
+      if (selectedUserId === user.uid) {
+        setMonthlyRecords(prev => {
+          if (prev.some(r => r.id === docRef.id)) return prev;
+          return [...prev, newRecord];
+        });
+      }
     } catch (e) {
       const error = e as Error;
       alert('기록 중 오류가 발생했습니다: ' + error.message);
