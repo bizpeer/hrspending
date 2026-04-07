@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  PlusCircle, Users, UserPlus, ArrowRightLeft, 
-  Trash2, Building, X, Search, MoreHorizontal, ChevronRight, Briefcase, Calendar, Mail, ShieldCheck, History,
-  ChevronDown
+  PlusCircle, Users, UserPlus, 
+  Trash2, Building, X, Search, ChevronRight, Briefcase, ShieldCheck, History
 } from 'lucide-react';
 import { collection, onSnapshot, addDoc, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
 
@@ -43,6 +43,7 @@ interface AuditLog {
 
 export const OrganizationAdmin: React.FC = () => {
   const { userData } = useAuthStore();
+  const navigate = useNavigate();
   const isMasterAdmin = userData?.role === 'ADMIN';
 
   const [divisions, setDivisions] = useState<Division[]>([]);
@@ -75,6 +76,14 @@ export const OrganizationAdmin: React.FC = () => {
   const [deleteLogsPassword, setDeleteLogsPassword] = useState('');
   const [isProcessingLogs, setIsProcessingLogs] = useState(false);
   const [logSearchResults, setLogSearchResults] = useState<AuditLog[] | null>(null);
+
+  // 부관리자(SUB_ADMIN) 접근 차단 리다이렉트
+  useEffect(() => {
+    if (userData && userData.role === 'SUB_ADMIN') {
+      alert('조직 관리 메뉴에 대한 접근 권한이 없습니다.');
+      navigate('/attendance');
+    }
+  }, [userData, navigate]);
 
   // Firestore 데이터 실시간 구독
   useEffect(() => {
@@ -287,14 +296,12 @@ export const OrganizationAdmin: React.FC = () => {
       const { auth } = await import('../firebase');
       const { signInWithEmailAndPassword } = await import('firebase/auth');
       
-      // 1. 보안 확인
       try {
         await signInWithEmailAndPassword(auth, userData?.email || '', deleteLogsPassword);
       } catch (err) {
         throw new Error('비밀번호가 일치하지 않습니다.');
       }
 
-      // 2. 일괄 삭제
       const { writeBatch, getDocs, collection } = await import('firebase/firestore');
       const batch = writeBatch(db);
       const snap = await getDocs(collection(db, 'AuditLogs'));
@@ -409,7 +416,7 @@ export const OrganizationAdmin: React.FC = () => {
           </div>
         )}
 
-        {/* 이력 검색 결과 섹션 (Search Results View) */}
+        {/* 이력 검색 결과 섹션 */}
         {logSearchResults && (
           <div className="bg-white rounded-[2.5rem] shadow-2xl border-2 border-indigo-100 overflow-hidden animate-in slide-in-from-top-4 duration-500">
             <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-indigo-50/30">
@@ -443,20 +450,10 @@ export const OrganizationAdmin: React.FC = () => {
                 <tbody className="divide-y divide-slate-50">
                   {logSearchResults.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50/80 transition-all">
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400">
-                           <Calendar className="w-3.5 h-3.5" />
-                           {new Date(log.timestamp).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </div>
+                      <td className="px-8 py-6 text-[11px] font-bold text-slate-400">
+                        {new Date(log.timestamp).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </td>
-                      <td className="px-8 py-6">
-                        <div className="flex items-center gap-2">
-                           <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500">
-                              {log.performedBy.charAt(0)}
-                           </div>
-                           <span className="text-sm font-black text-slate-700">{log.performedBy}</span>
-                        </div>
-                      </td>
+                      <td className="px-8 py-6 text-sm font-black text-slate-700">{log.performedBy}</td>
                       <td className="px-8 py-6">
                         <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase border ${
                           log.actionType.includes('CREATE') ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
@@ -466,20 +463,12 @@ export const OrganizationAdmin: React.FC = () => {
                           {log.actionType}
                         </span>
                       </td>
-                      <td className="px-8 py-6">
-                        <span className="text-sm font-bold text-slate-600">{log.targetName}</span>
-                      </td>
-                      <td className="px-8 py-6 text-right">
-                        <span className="text-xs font-medium text-slate-500 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">{log.details}</span>
-                      </td>
+                      <td className="px-8 py-6 text-sm font-bold text-slate-600">{log.targetName}</td>
+                      <td className="px-8 py-6 text-right text-xs text-slate-500 font-medium">{log.details}</td>
                     </tr>
                   ))}
                   {logSearchResults.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="text-center py-24 text-slate-400 font-bold">
-                         해당 이름에 대한 조직 변경 이력을 찾을 수 없습니다.
-                      </td>
-                    </tr>
+                    <tr><td colSpan={5} className="text-center py-24 text-slate-400 font-bold">검색 결과가 없습니다.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -487,8 +476,9 @@ export const OrganizationAdmin: React.FC = () => {
           </div>
         )}
 
+        {/* 조직 엔진 (Main Grid) */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
-          {/* 본부 리스트 (Divisions) */}
+          {/* 본부 리스트 */}
           <div className="xl:col-span-4 space-y-6">
             <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden">
               <div className="p-8 border-b border-slate-50 flex items-center justify-between">
@@ -506,308 +496,136 @@ export const OrganizationAdmin: React.FC = () => {
                 </button>
               </div>
               
-              <div className="p-4 space-y-3">
+              <div className="p-2 space-y-2">
                 {divisions.map((div) => (
                   <div 
                     key={div.id}
                     onClick={() => setSelectedDivision(div.id)}
-                    className={`group p-6 rounded-[2rem] transition-all duration-500 cursor-pointer border-2 ${
+                    className={`group p-3 rounded-2xl transition-all duration-500 cursor-pointer border-2 ${
                       selectedDivision === div.id 
                         ? 'bg-indigo-600 border-indigo-400 shadow-2xl shadow-indigo-100 -translate-y-1' 
                         : 'bg-white border-transparent hover:border-indigo-100 hover:bg-slate-50'
                     }`}
                   >
-                    <div className="flex flex-col gap-4">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-colors ${
-                            selectedDivision === div.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'
-                          }`}>
-                            <Briefcase className="w-5 h-5" />
-                          </div>
-                          <span className={`text-lg font-black tracking-tight ${selectedDivision === div.id ? 'text-white' : 'text-slate-700'}`}>
-                            {div.name}
-                          </span>
-                        </div>
-                        <Trash2 
-                          className={`w-5 h-5 transition-all opacity-0 group-hover:opacity-100 ${
-                            selectedDivision === div.id ? 'text-white/40 hover:text-white' : 'text-slate-200 hover:text-rose-500'
-                          }`}
-                          onClick={(e) => { e.stopPropagation(); handleDeleteDivision(div.id, div.name); }}
-                        />
-                      </div>
-                      
-                      <div className={`flex items-center gap-3 p-3 rounded-xl transition-colors ${
-                        selectedDivision === div.id ? 'bg-white/10' : 'bg-slate-50'
-                      }`}>
-                         <ShieldCheck className={`w-4 h-4 ${selectedDivision === div.id ? 'text-white/60' : 'text-slate-400'}`} />
-                         <span className={`text-xs font-bold ${selectedDivision === div.id ? 'text-white/60' : 'text-slate-400'}`}>본부장:</span>
-                         <select 
-                          className={`flex-1 text-xs font-black bg-transparent border-none focus:ring-0 p-0 cursor-pointer appearance-none ${
-                            selectedDivision === div.id ? 'text-white' : 'text-indigo-600'
-                          }`}
-                          value={div.headId || ''}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => handleAppointHead(div.id, e.target.value)}
-                         >
-                           <option value="" className="text-slate-900">미임명</option>
-                           {employees.map(emp => (
-                             <option key={emp.uid} value={emp.uid} className="text-slate-900">{emp.name}</option>
-                           ))}
-                         </select>
-                         <ChevronRight className={`w-4 h-4 ${selectedDivision === div.id ? 'text-white/40' : 'text-slate-300'}`} />
-                      </div>
+                    <div className="flex flex-col gap-2">
+                       <div className="flex justify-between items-center">
+                         <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${
+                              selectedDivision === div.id ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-400'
+                            }`}>
+                              <Briefcase className="w-4 h-4" />
+                            </div>
+                            <span className={`text-base font-black tracking-tight ${selectedDivision === div.id ? 'text-white' : 'text-slate-700'}`}>
+                              {div.name}
+                            </span>
+                         </div>
+                         <Trash2 className="w-4 h-4 opacity-0 group-hover:opacity-100 text-slate-200 hover:text-rose-500 transition-all" onClick={(e) => { e.stopPropagation(); handleDeleteDivision(div.id, div.name); }} />
+                       </div>
+                       <div className={`flex items-center gap-2 p-1.5 rounded-xl transition-colors ${selectedDivision === div.id ? 'bg-white/10' : 'bg-slate-50'}`}>
+                          <ShieldCheck className="w-4 h-4 text-slate-400" />
+                          <span className="text-xs font-bold text-slate-400">본부장:</span>
+                          <select 
+                            className={`flex-1 text-xs font-black bg-transparent border-none focus:ring-0 p-0 appearance-none ${selectedDivision === div.id ? 'text-white' : 'text-indigo-600'}`}
+                            value={div.headId || ''}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => handleAppointHead(div.id, e.target.value)}
+                          >
+                            <option value="" className="text-slate-900">미임명</option>
+                            {employees.map(emp => <option key={emp.uid} value={emp.uid} className="text-slate-900">{emp.name}</option>)}
+                          </select>
+                          <ChevronRight className="w-4 h-4 text-slate-300" />
+                       </div>
                     </div>
                   </div>
                 ))}
-                {divisions.length === 0 && (
-                  <div className="py-12 text-center">
-                    <Building className="w-12 h-12 text-slate-100 mx-auto mb-4" />
-                    <p className="text-slate-400 font-bold">등록된 본부가 없습니다.</p>
-                  </div>
-                )}
               </div>
             </div>
           </div>
 
-          {/* 팀 및 구성원 (Teams & Members) */}
+          {/* 팀 및 구성원 */}
           <div className="xl:col-span-8 space-y-8">
             <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden min-h-[600px]">
-              <div className="p-8 border-b border-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                <div>
-                  <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-3">
-                    소속 팀 관리
-                    <span className="text-xs font-black bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full border border-emerald-100 tracking-widest uppercase">
-                      Teams
-                    </span>
-                  </h2>
-                  <p className="text-slate-400 text-xs font-medium mt-1">본부 산하의 직조와 리더를 임명합니다.</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  {selectedDivision && (
-                    <button 
-                      onClick={() => setSelectedDivision(null)}
-                      className="px-4 py-2 text-xs font-black text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
-                    >
-                      전체 팀 보기
-                    </button>
-                  )}
-                  <button 
-                    onClick={() => {
-                      if (selectedDivision) setNewTeamDivId(selectedDivision);
-                      setShowTeamModal(true);
-                    }}
-                    className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all hover:scale-105 active:scale-95"
-                  >
-                    <PlusCircle className="w-4 h-4" />
-                    <span>팀 생성</span>
-                  </button>
-                </div>
+              <div className="p-4 border-b border-slate-50 flex items-center justify-between">
+                <h2 className="text-xl font-black text-slate-800 tracking-tight">소속 팀 관리</h2>
+                <button 
+                  onClick={() => { if (selectedDivision) setNewTeamDivId(selectedDivision); setShowTeamModal(true); }}
+                  className="flex items-center gap-2 px-5 py-3 bg-emerald-600 text-white font-black rounded-xl shadow-xl hover:bg-emerald-700 transition-all"
+                >
+                  <PlusCircle className="w-4 h-4" /> <span>팀 생성</span>
+                </button>
               </div>
 
-              <div className="p-8">
-                {filteredTeams.length > 0 || unassignedEmployees.length > 0 ? (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* 팀 미배정 사원 카드 추가 */}
-                    {unassignedEmployees.length > 0 && !selectedDivision && (
-                      <div className="group p-8 rounded-[2.5rem] border-2 border-amber-100 bg-amber-50/20 hover:bg-white hover:border-amber-300 hover:shadow-2xl transition-all duration-500">
-                        <div className="flex justify-between items-start mb-6">
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest bg-white px-2 py-0.5 rounded-lg border border-amber-100">
-                                Unassigned
-                              </span>
-                            </div>
-                            <h4 className="text-xl font-black text-slate-900 tracking-tight">팀 미배정 구성원</h4>
-                          </div>
-                          <div className="p-2 bg-amber-100 text-amber-600 rounded-xl">
-                            <Users className="w-5 h-5" />
-                          </div>
-                        </div>
-
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                             <div className="flex items-center justify-between px-1">
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">배정 대기 ({unassignedEmployees.length})</span>
-                             </div>
-                             <div className="flex flex-wrap gap-2">
-                               {unassignedEmployees.map(emp => (
-                                 <div 
-                                   key={emp.uid} 
-                                   className="group/tag flex items-center gap-3 bg-white border border-slate-100 px-4 py-2.5 rounded-2xl shadow-sm hover:border-amber-500 hover:scale-[1.05] transition-all cursor-pointer"
-                                   onClick={() => { setEditingEmployee(emp); setShowEditModal(true); }}
-                                 >
-                                   <div className="w-6 h-6 rounded-full bg-amber-50 flex items-center justify-center text-[10px] font-black text-amber-600 group-hover/tag:bg-amber-100">
-                                      {emp.name.charAt(0)}
-                                   </div>
-                                   <span className="text-xs font-black text-slate-700">{emp.name}</span>
-                                   <X 
-                                     className="w-3.5 h-3.5 text-slate-200 hover:text-rose-500 transition-colors" 
-                                     onClick={(e) => { e.stopPropagation(); handleDeleteEmployee(emp.uid, emp.name); }}
-                                   />
-                                   <div className="w-px h-3 bg-slate-100 mx-1"></div>
-                                   <History 
-                                      className="w-3.5 h-3.5 text-slate-200 hover:text-indigo-500 transition-colors"
-                                      onClick={(e) => { e.stopPropagation(); setSelectedEmpForLogs(emp); }}
-                                   />
-                                 </div>
-                               ))}
-                             </div>
-                          </div>
-                          <p className="text-[10px] text-amber-600/60 font-medium italic pt-2">
-                            * 직원을 클릭하여 팀을 배정하거나 역할을 수정할 수 있습니다.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {filteredTeams.map((team) => (
-                      <div key={team.id} className="group p-8 rounded-[2.5rem] border-2 border-slate-50 bg-slate-50/30 hover:bg-white hover:border-indigo-100 hover:shadow-2xl transition-all duration-500">
-                        <div className="flex justify-between items-start mb-6">
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest bg-white px-2 py-0.5 rounded-lg border border-slate-100">
-                                {divisions.find(d => d.id === team.divisionId)?.name}
-                              </span>
-                            </div>
-                            <h4 className="text-xl font-black text-slate-900 tracking-tight">{team.name}</h4>
-                          </div>
-                          <div className="flex items-center gap-2">
-                             <button className="p-2 text-slate-300 hover:text-slate-500 hover:bg-slate-100 rounded-lg transition-all opacity-0 group-hover:opacity-100">
-                               <MoreHorizontal className="w-5 h-5" />
-                             </button>
-                             <button 
-                              onClick={() => handleDeleteTeam(team.id, team.name)}
-                              className="p-2 text-slate-200 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                             >
-                               <Trash2 className="w-4.5 h-4.5" />
-                             </button>
-                          </div>
-                        </div>
-
-                        <div className="space-y-4">
-                           <div className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-100 shadow-sm transition-all hover:border-emerald-200">
-                              <div className="flex items-center gap-3">
-                                 <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
-                                    <ShieldCheck className="w-4 h-4" />
-                                 </div>
-                                 <span className="text-xs font-black text-slate-500 tracking-tight">팀 리더</span>
-                              </div>
-                              <select 
-                                className="text-xs font-black text-emerald-600 bg-transparent border-none focus:ring-0 p-0 text-right cursor-pointer"
-                                value={team.leaderId || ''}
-                                onChange={(e) => handleAppointLeader(team.id, e.target.value)}
-                              >
-                                <option value="">미지정</option>
-                                {getEmployeesInTeam(team.id).map(emp => (
-                                  <option key={emp.uid} value={emp.uid}>{emp.name}</option>
-                                ))}
-                              </select>
-                           </div>
-
-                           <div className="space-y-2">
-                              <div className="flex items-center justify-between px-1">
-                                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">구성원 ({getEmployeesInTeam(team.id).length})</span>
-                                 <button 
-                                    onClick={() => { setEditingEmployee(null); setShowEditModal(true); }}
-                                    className="text-[10px] font-black text-indigo-500 hover:underline"
-                                 >
-                                    직원 추가
-                                 </button>
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                {getEmployeesInTeam(team.id).map(emp => (
-                                  <div 
-                                    key={emp.uid} 
-                                    className="group/tag flex items-center gap-3 bg-white border border-slate-100 px-4 py-2.5 rounded-2xl shadow-sm hover:border-indigo-500 hover:scale-[1.05] transition-all cursor-pointer"
-                                    onClick={() => { setEditingEmployee(emp); setShowEditModal(true); }}
-                                  >
-                                    <div className="w-6 h-6 rounded-full bg-slate-50 flex items-center justify-center text-[10px] font-black text-slate-400 group-hover/tag:bg-indigo-50 group-hover/tag:text-indigo-600">
-                                       {emp.name.charAt(0)}
-                                    </div>
-                                    <span className="text-xs font-black text-slate-700">
-                                      {emp.name}
-                                      {team.leaderId === emp.uid && <span className="text-[9px] ml-1.5 text-emerald-600 font-black px-1.5 py-0.5 bg-emerald-50 rounded-lg">LEAD</span>}
-                                    </span>
-                                    <X 
-                                      className="w-3.5 h-3.5 text-slate-200 hover:text-rose-500 transition-colors" 
-                                      onClick={(e) => { e.stopPropagation(); handleDeleteEmployee(emp.uid, emp.name); }}
-                                    />
-                                    <div className="w-px h-3 bg-slate-100 mx-1"></div>
-                                    <History 
-                                       className="w-3.5 h-3.5 text-slate-200 hover:text-indigo-500 transition-colors"
-                                       onClick={(e) => { e.stopPropagation(); setSelectedEmpForLogs(emp); }}
-                                    />
-                                  </div>
-                                ))}
-                                {getEmployeesInTeam(team.id).length === 0 && (
-                                  <p className="text-[10px] text-slate-300 font-medium italic w-full py-2 text-center">아직 배정된 직원이 없습니다.</p>
-                                )}
-                              </div>
-                           </div>
-                           
-                           <button 
-                              onClick={() => { /* Logic to open history? */ }}
-                              className="w-full mt-4 flex items-center justify-center gap-2 py-3.5 bg-slate-100/50 text-slate-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-100 transition-all border border-transparent hover:border-slate-200"
-                           >
-                              <ArrowRightLeft className="w-3.5 h-3.5" />
-                              인사 이동 및 전체 기록
-                           </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-40 gap-6">
-                    <div className="w-24 h-24 bg-slate-50 rounded-[3rem] flex items-center justify-center border-4 border-white shadow-inner relative">
-                       <Building className="w-10 h-10 text-slate-200" />
-                       <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg border border-slate-100">
-                          <PlusCircle className="w-6 h-6 text-indigo-400" />
-                       </div>
+              <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {unassignedEmployees.length > 0 && !selectedDivision && (
+                  <div className="p-4 rounded-3xl border-2 border-amber-100 bg-amber-50/20">
+                    <h4 className="text-lg font-black text-amber-800 mb-3">미배정 구성원</h4>
+                    <div className="flex flex-wrap gap-2">
+                       {unassignedEmployees.map(emp => (
+                         <div key={emp.uid} className="flex items-center gap-3 bg-white border border-slate-100 px-4 py-2 rounded-2xl shadow-sm cursor-pointer" onClick={() => { setEditingEmployee(emp); setShowEditModal(true); }}>
+                           <span className="text-xs font-black text-slate-700">{emp.name}</span>
+                         </div>
+                       ))}
                     </div>
-                    <p className="text-slate-400 font-black tracking-tight text-lg">새로운 조직 구조를 설계해 보세요.</p>
                   </div>
                 )}
+                
+                {filteredTeams.map((team) => (
+                  <div key={team.id} className="p-4 rounded-3xl border-2 border-slate-50 bg-slate-50/30 hover:bg-white hover:border-indigo-100 transition-all">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <span className="text-[10px] font-black text-indigo-500 uppercase bg-white px-2 py-0.5 rounded-lg border">{divisions.find(d => d.id === team.divisionId)?.name}</span>
+                        <h4 className="text-xl font-black text-slate-900">{team.name}</h4>
+                      </div>
+                      <button onClick={() => handleDeleteTeam(team.id, team.name)} className="p-2 text-slate-200 hover:text-rose-500"><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                    
+                    <div className="space-y-3">
+                       <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-100">
+                          <span className="text-xs font-black text-slate-500">팀 리더</span>
+                          <select className="text-xs font-black text-emerald-600 bg-transparent border-none p-0 text-right" value={team.leaderId || ''} onChange={(e) => handleAppointLeader(team.id, e.target.value)}>
+                            <option value="">미지정</option>
+                            {getEmployeesInTeam(team.id).map(emp => <option key={emp.uid} value={emp.uid}>{emp.name}</option>)}
+                          </select>
+                       </div>
+                       <div className="space-y-2">
+                          <div className="flex items-center justify-between px-1">
+                            <span className="text-[10px] font-black text-slate-400 uppercase">구성원 ({getEmployeesInTeam(team.id).length})</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {getEmployeesInTeam(team.id).map(emp => (
+                              <div key={emp.uid} className="flex items-center gap-2 bg-white border border-slate-100 px-3 py-2 rounded-2xl shadow-sm hover:scale-105 transition-all cursor-pointer" onClick={() => { setEditingEmployee(emp); setShowEditModal(true); }}>
+                                <span className="text-xs font-black text-slate-700">{emp.name}</span>
+                                <History className="w-3.5 h-3.5 text-slate-200" onClick={(e) => { e.stopPropagation(); setSelectedEmpForLogs(emp); }} />
+                                <X className="w-3.5 h-3.5 text-slate-200 hover:text-rose-500" onClick={(e) => { e.stopPropagation(); handleDeleteEmployee(emp.uid, emp.name); }} />
+                              </div>
+                            ))}
+                          </div>
+                       </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         </div>
-
       </div>
 
-      {/* 모달 배경 필터 (Shared) */}
+      {/* 모달 필터 */}
       {(showDivisionModal || showTeamModal || showEmployeeModal || showEditModal || selectedEmpForLogs || showLogDeleteConfirm) && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] transition-opacity duration-500" />
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100]" />
       )}
 
       {/* 본부 생성 모달 */}
       {showDivisionModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
-          <div className="bg-white rounded-[3rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] p-12 w-full max-w-lg border border-slate-100 transform transition-all animate-modal-pop">
+          <div className="bg-white rounded-[3rem] p-12 w-full max-w-lg shadow-2xl animate-modal-pop">
             <div className="flex justify-between items-center mb-10">
-              <div className="space-y-1">
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight">신규 본부 설립</h2>
-                <p className="text-slate-500 text-sm font-medium tracking-tight">새로운 조직 단위를 정의합니다.</p>
-              </div>
-              <button onClick={() => setShowDivisionModal(false)} className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:text-slate-900 transition-colors">
-                <X className="w-6 h-6" />
-              </button>
+              <h2 className="text-3xl font-black text-slate-900">신규 본부 설립</h2>
+              <button onClick={() => setShowDivisionModal(false)}><X className="w-6 h-6" /></button>
             </div>
-            
             <form onSubmit={handleCreateDivision} className="space-y-8">
-              <div className="space-y-3">
-                <label className="block text-sm font-black text-slate-800 ml-1">본부 명칭</label>
-                <input 
-                  type="text" autoFocus required value={newDivName}
-                  onChange={(e) => setNewDivName(e.target.value)}
-                  placeholder="예: 글로벌 비즈니스 본부"
-                  className="w-full px-8 py-5 bg-slate-50 border-2 border-transparent rounded-[2rem] focus:border-indigo-500 focus:bg-white outline-none transition-all font-black text-lg shadow-inner" 
-                />
-              </div>
-              <div className="flex gap-4 pt-4">
-                <button type="button" onClick={() => setShowDivisionModal(false)} className="flex-1 px-8 py-5 text-slate-400 font-black bg-slate-100 rounded-[1.5rem] hover:bg-slate-200 transition-all">취소</button>
-                <button type="submit" className="flex-[2] px-8 py-5 text-white font-black bg-indigo-600 rounded-[1.5rem] hover:bg-indigo-700 shadow-2xl shadow-indigo-200 transition-all active:scale-95">본부 생성</button>
-              </div>
+              <input type="text" autoFocus required value={newDivName} onChange={(e) => setNewDivName(e.target.value)} placeholder="본부 명칭" className="w-full p-5 bg-slate-50 rounded-[2rem] outline-none font-black text-lg" />
+              <button type="submit" className="w-full p-5 text-white bg-indigo-600 rounded-[1.5rem] font-black">본부 생성</button>
             </form>
           </div>
         </div>
@@ -816,270 +634,120 @@ export const OrganizationAdmin: React.FC = () => {
       {/* 팀 생성 모달 */}
       {showTeamModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
-          <div className="bg-white rounded-[3rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] p-12 w-full max-w-lg border border-slate-100 animate-modal-pop">
-            <div className="flex justify-between items-center mb-10">
-              <div className="space-y-1">
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight">신규 팀 구축</h2>
-                <p className="text-slate-500 text-sm font-medium tracking-tight">실무를 담당할 새로운 유닛을 생성합니다.</p>
-              </div>
-              <button onClick={() => setShowTeamModal(false)} className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:text-slate-900 transition-colors">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateTeam} className="space-y-8">
-              <div className="space-y-6">
-                <div className="space-y-3">
-                  <label className="block text-sm font-black text-slate-800 ml-1 tracking-tight">소속 본부 선택</label>
-                  <select 
-                    required value={newTeamDivId}
-                    onChange={(e) => setNewTeamDivId(e.target.value)}
-                    className="w-full px-8 py-5 bg-slate-50 border-2 border-transparent rounded-[2rem] focus:border-emerald-500 focus:bg-white outline-none transition-all font-black text-slate-700 shadow-inner appearance-none"
-                  >
-                    <option value="">-- 본부 선택 --</option>
-                    {divisions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-3">
-                  <label className="block text-sm font-black text-slate-800 ml-1 tracking-tight">팀 명칭</label>
-                  <input 
-                    type="text" required value={newTeamName}
-                    onChange={(e) => setNewTeamName(e.target.value)}
-                    placeholder="예: 브랜드 커뮤니케이션 팀"
-                    className="w-full px-8 py-5 bg-slate-50 border-2 border-transparent rounded-[2rem] focus:border-emerald-500 focus:bg-white outline-none transition-all font-black text-lg shadow-inner" 
-                  />
-                </div>
-              </div>
-              <div className="flex gap-4 pt-4">
-                <button type="button" onClick={() => setShowTeamModal(false)} className="flex-1 px-8 py-5 text-slate-400 font-black bg-slate-100 rounded-[1.5rem] hover:bg-slate-200 transition-all">취소</button>
-                <button type="submit" className="flex-[2] px-8 py-5 text-white font-black bg-emerald-600 rounded-[1.5rem] hover:bg-emerald-700 shadow-2xl shadow-emerald-100 transition-all active:scale-95">팀 설립</button>
-              </div>
+          <div className="bg-white rounded-[3rem] p-12 w-full max-w-lg shadow-2xl animate-modal-pop">
+            <h2 className="text-3xl font-black text-slate-900 mb-10">신규 팀 구축</h2>
+            <form onSubmit={handleCreateTeam} className="space-y-6">
+              <select className="w-full p-5 bg-slate-50 rounded-[2rem] outline-none font-black" value={newTeamDivId} onChange={(e) => setNewTeamDivId(e.target.value)}>
+                <option value="">본부 선택</option>
+                {divisions.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+              <input type="text" required value={newTeamName} onChange={(e) => setNewTeamName(e.target.value)} placeholder="팀 명칭" className="w-full p-5 bg-slate-50 rounded-[2rem] outline-none font-black" />
+              <button type="submit" className="w-full p-5 text-white bg-indigo-600 rounded-[1.5rem] font-black">팀 생성</button>
+              <button type="button" onClick={() => setShowTeamModal(false)} className="w-full p-4 text-slate-400 font-bold">취소</button>
             </form>
           </div>
         </div>
       )}
 
+      {/* 직원 등록 모달 */}
       {showEmployeeModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
-          <div className="bg-white rounded-[3.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] p-12 w-full max-w-xl border border-slate-100 animate-modal-pop">
-            <div className="flex justify-between items-center mb-10">
-              <div className="space-y-1">
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
-                   인사 DB 신규 등록
-                </h2>
-                <p className="text-slate-500 text-sm font-medium tracking-tight">새로운 가족을 아카이브에 안전하게 추가합니다.</p>
+          <div className="bg-white rounded-[3rem] p-12 w-full max-w-xl shadow-2xl animate-modal-pop">
+            <h2 className="text-3xl font-black text-slate-900 mb-10">신규 직원 등록</h2>
+            <form onSubmit={handleCreateEmployee} className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <input type="text" required placeholder="이름" value={newEmp.name} onChange={(e) => setNewEmp({...newEmp, name: e.target.value})} className="p-5 bg-slate-50 rounded-[2rem] outline-none font-black" />
+                <input type="text" required placeholder="아이디(이메일)" value={newEmp.email} onChange={(e) => setNewEmp({...newEmp, email: e.target.value})} className="p-5 bg-slate-50 rounded-[2rem] outline-none font-black" />
               </div>
-              <button onClick={() => setShowEmployeeModal(false)} className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:text-slate-900 transition-colors">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateEmployee} className="space-y-8">
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <label className="block text-sm font-black text-slate-800 ml-1 tracking-tight flex items-center gap-2">
-                    <Users className="w-4 h-4 text-indigo-500" /> 이름
-                  </label>
-                  <input type="text" required value={newEmp.name} onChange={(e) => setNewEmp({...newEmp, name: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-black text-slate-700 shadow-inner" />
-                </div>
-                <div className="space-y-3">
-                  <label className="block text-sm font-black text-slate-800 ml-1 tracking-tight flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-indigo-500" /> 입사 일자
-                  </label>
-                  <input type="date" required value={newEmp.joinDate} onChange={(e) => setNewEmp({...newEmp, joinDate: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-black text-slate-700 shadow-inner" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-3">
-                  <label className="block text-sm font-black text-slate-800 ml-1 tracking-tight flex items-center gap-2">
-                    <Mail className="w-4 h-4 text-indigo-500" /> 사내 아이디
-                  </label>
-                  <input type="text" placeholder="user_id" required value={newEmp.email} onChange={(e) => setNewEmp({...newEmp, email: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-black text-slate-700 shadow-inner" />
-                </div>
-                <div className="space-y-3">
-                  <label className="block text-sm font-black text-slate-800 ml-1 tracking-tight flex items-center gap-2">
-                    <Briefcase className="w-4 h-4 text-indigo-500" /> 초기 소속 팀
-                  </label>
-                  <select value={newEmp.teamId} onChange={(e) => setNewEmp({...newEmp, teamId: e.target.value})} className="w-full px-6 py-4 bg-slate-50 rounded-2xl outline-none font-black text-slate-700 shadow-inner appearance-none">
-                    <option value="">-- 미배정 --</option>
-                    {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
-                </div>
-              </div>
-
-              <div className="pt-8 flex gap-6">
-                <button type="button" onClick={() => setShowEmployeeModal(false)} className="flex-1 px-8 py-5 text-slate-400 font-black bg-slate-100 rounded-2xl hover:bg-slate-200 transition-all">취소</button>
-                <button type="submit" className="flex-[2] px-8 py-5 text-white font-black bg-indigo-600 rounded-2xl shadow-[0_12px_24px_-8px_rgba(79,70,229,0.5)] hover:bg-indigo-700 transition-all active:scale-95">입사 정보 등록</button>
-              </div>
+              <select className="w-full p-5 bg-slate-50 rounded-[2rem] outline-none font-black" value={newEmp.teamId} onChange={(e) => setNewEmp({...newEmp, teamId: e.target.value})}>
+                <option value="">팀 선택(선택사항)</option>
+                {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+              <button type="submit" className="w-full p-5 text-white bg-indigo-600 rounded-[1.5rem] font-black">등록 완료</button>
+              <button type="button" onClick={() => setShowEmployeeModal(false)} className="w-full p-4 text-slate-400 font-bold">취소</button>
             </form>
           </div>
         </div>
       )}
 
-      {/* 인사 정보 수정 모달 */}
-      {showEditModal && (
+      {/* 역할/팀 수정 모달 */}
+      {showEditModal && editingEmployee && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
-          <div className="bg-white rounded-[3rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] p-12 w-full max-w-md border border-slate-100 animate-modal-pop">
-            <div className="flex justify-between items-center mb-10">
-              <div className="space-y-1">
-                <h2 className="text-3xl font-black text-slate-900 tracking-tight">인사 고과 및 소속 관리</h2>
-                <p className="text-slate-500 text-sm font-medium tracking-tight">
-                  <span className="text-indigo-600 font-black">{editingEmployee?.name || '신규 인원'}</span>님의 정보를 수정합니다.
-                </p>
-              </div>
-              <button onClick={() => setShowEditModal(false)} className="p-3 bg-slate-50 text-slate-400 rounded-2xl hover:text-slate-900 transition-colors">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="space-y-8">
-              <div className="space-y-6">
-                <div className="space-y-3">
-                  <label className="block text-sm font-black text-slate-800 ml-1 tracking-tight">소속 팀 재배치</label>
-                  <select 
-                    className="w-full px-8 py-5 bg-slate-50 border-2 border-transparent rounded-[2rem] focus:border-indigo-500 focus:bg-white outline-none transition-all font-black text-slate-700 shadow-inner appearance-none"
-                    value={editingEmployee?.teamId || ''}
-                    onChange={(e) => setEditingEmployee(editingEmployee ? { ...editingEmployee, teamId: e.target.value } : null)}
-                  >
-                    <option value="">-- 팀 선택 --</option>
-                    {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                  </select>
-                </div>
-                <div className="space-y-3">
-                  <label className="block text-sm font-black text-slate-800 ml-1 tracking-tight">권한 등급 (Access Level)</label>
-                  <div className="relative">
-                    <select 
-                      className="w-full px-8 py-5 bg-slate-50 border-2 border-slate-100 rounded-[2rem] focus:border-indigo-500 focus:bg-white outline-none transition-all font-black text-slate-700 shadow-sm appearance-none cursor-pointer pr-12"
-                      value={editingEmployee?.role || 'EMPLOYEE'}
-                      onChange={(e) => setEditingEmployee(editingEmployee ? { ...editingEmployee, role: e.target.value } : null)}
-                    >
-                      <option value="EMPLOYEE">일반 직원 (EMPLOYEE)</option>
-                      <option value="SUB_ADMIN">부관리자 (SUB_ADMIN)</option>
-                      <option value="ADMIN">시스템 마스터 (ADMIN)</option>
-                    </select>
-                    <ChevronDown className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-4 pt-4">
-                <button onClick={() => setShowEditModal(false)} className="flex-1 px-8 py-5 text-slate-400 font-black bg-slate-100 rounded-[1.5rem] hover:bg-slate-200 transition-all">취소</button>
-                <button 
-                  onClick={() => {
-                    if (editingEmployee) handleUpdateRole(editingEmployee, editingEmployee.teamId || '', editingEmployee.role);
-                  }}
-                  className="flex-[2] px-8 py-5 text-white font-black bg-indigo-600 rounded-[1.5rem] shadow-2xl shadow-indigo-200 transition-all active:scale-95"
-                >
-                  기록 저장
-                </button>
-              </div>
+          <div className="bg-white rounded-[3rem] p-12 w-full max-w-lg shadow-2xl animate-modal-pop">
+            <h2 className="text-2xl font-black text-slate-900 mb-6">{editingEmployee.name} 정보 수정</h2>
+            <div className="space-y-6">
+               <div className="space-y-2">
+                 <label className="text-xs font-black text-slate-400 ml-1">소속 팀 변경</label>
+                 <select value={editingEmployee.teamId || ''} onChange={(e) => setEditingEmployee({...editingEmployee, teamId: e.target.value})} className="w-full p-5 bg-slate-50 rounded-2xl outline-none font-black">
+                   <option value="">미배정</option>
+                   {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                 </select>
+               </div>
+               <div className="space-y-2">
+                 <label className="text-xs font-black text-slate-400 ml-1">권한 등급</label>
+                 <select value={editingEmployee.role} onChange={(e) => setEditingEmployee({...editingEmployee, role: e.target.value})} className="w-full p-5 bg-slate-50 rounded-2xl outline-none font-black">
+                   <option value="EMPLOYEE">일반 직원 (EMPLOYEE)</option>
+                   <option value="SUB_ADMIN">부관리자 (SUB_ADMIN)</option>
+                   <option value="ADMIN">최고 관리자 (ADMIN)</option>
+                 </select>
+               </div>
+               <button onClick={() => handleUpdateRole(editingEmployee, editingEmployee.teamId || '', editingEmployee.role)} className="w-full p-5 text-white bg-indigo-600 rounded-2xl font-black shadow-lg">상태 저장하기</button>
+               <button onClick={() => setShowEditModal(false)} className="w-full p-4 text-slate-400 font-bold">닫기</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 개별 사원 이력 조회 모달 */}
+      {/* 직원 이력 상세 모달 */}
       {selectedEmpForLogs && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
-          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl border border-slate-100 overflow-hidden animate-modal-pop">
-            <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-900 text-white">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-[10px] font-black bg-indigo-500 text-white px-3 py-1 rounded-full uppercase tracking-widest leading-none">Activity Log</span>
-                </div>
-                <h2 className="text-2xl font-black tracking-tight">{selectedEmpForLogs.name}님의 조직 변경 이력</h2>
-              </div>
-              <button onClick={() => setSelectedEmpForLogs(null)} className="p-3 bg-white/10 text-white/60 rounded-2xl hover:text-white transition-all">
-                <X className="w-6 h-6" />
-              </button>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+          <div className="bg-white rounded-[3rem] p-10 w-full max-w-2xl shadow-2xl animate-modal-pop max-h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center mb-8 shrink-0">
+               <h2 className="text-2xl font-black text-slate-900">{selectedEmpForLogs.name} 변경 이력</h2>
+               <button onClick={() => setSelectedEmpForLogs(null)} className="p-3 bg-slate-50 rounded-2xl"><X className="w-6 h-6" /></button>
             </div>
-            
-            <div className="p-8 max-h-[60vh] overflow-y-auto premium-scrollbar bg-white">
-              <div className="space-y-6">
-                {auditLogs.filter(l => l.targetId === selectedEmpForLogs.uid).length > 0 ? (
-                  auditLogs.filter(l => l.targetId === selectedEmpForLogs.uid).map((log, idx, arr) => (
-                    <div key={log.id} className="relative pl-10">
-                      {idx !== arr.length - 1 && <div className="absolute left-[19px] top-10 bottom-[-24px] w-[2px] bg-slate-100"></div>}
-                      <div className={`absolute left-0 top-1 w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-md ${
-                        log.actionType.includes('CREATE') ? 'bg-emerald-500' :
-                        log.actionType.includes('DELETE') ? 'bg-rose-500' : 'bg-indigo-500'
-                      }`}>
-                         <History className="w-4 h-4" />
-                      </div>
-                      <div className="bg-slate-50/50 p-6 rounded-[1.5rem] border border-slate-100 flex flex-col gap-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                            {new Date(log.timestamp).toLocaleString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                          <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
-                            By {log.performedBy}
-                          </span>
-                        </div>
-                        <div className="text-sm font-black text-slate-800 tracking-tight">{log.details}</div>
-                      </div>
+            <div className="flex-1 overflow-y-auto pr-2 space-y-4">
+               {auditLogs.filter(l => l.targetId === selectedEmpForLogs.uid).map(log => (
+                 <div key={log.id} className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
+                    <div className="flex justify-between items-start mb-2">
+                       <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">{log.actionType}</span>
+                       <span className="text-[11px] font-bold text-slate-400">{new Date(log.timestamp).toLocaleString()}</span>
                     </div>
-                  ))
-                ) : (
-                  <div className="py-20 text-center space-y-4">
-                    <History className="w-12 h-12 text-slate-100 mx-auto" />
-                    <p className="text-slate-400 font-bold">변경 이력이 존재하지 않습니다.</p>
-                  </div>
-                )}
-              </div>
+                    <p className="text-sm font-bold text-slate-700">{log.details}</p>
+                    <p className="text-[10px] text-slate-400 mt-2">처리자: {log.performedBy}</p>
+                 </div>
+               ))}
+               {auditLogs.filter(l => l.targetId === selectedEmpForLogs.uid).length === 0 && (
+                 <div className="py-20 text-center text-slate-400 font-bold">이력이 존재하지 않습니다.</div>
+               )}
             </div>
-            <div className="p-6 bg-slate-50 border-t border-slate-100 text-center">
-               <button onClick={() => setSelectedEmpForLogs(null)} className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-xl hover:bg-slate-800 transition-all">
-                 닫기
+          </div>
+        </div>
+      )}
+
+      {/* 이력 삭제 확인 모달 */}
+      {showLogDeleteConfirm && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-6">
+          <div className="bg-white rounded-[3rem] p-12 w-full max-w-lg shadow-2xl animate-modal-pop">
+            <h2 className="text-2xl font-black text-rose-600 mb-4 tracking-tight">전체 이력 영구 삭제</h2>
+            <p className="text-slate-500 font-medium mb-8">보안을 위해 비밀번호를 입력해주세요.</p>
+            <input 
+              type="password" 
+              placeholder="관리자 비밀번호"
+              value={deleteLogsPassword}
+              onChange={(e) => setDeleteLogsPassword(e.target.value)}
+              className="w-full p-5 bg-slate-50 rounded-[2rem] outline-none font-black mb-6"
+            />
+            <div className="flex gap-4">
+               <button onClick={() => { setShowLogDeleteConfirm(false); setDeleteLogsPassword(''); }} className="flex-1 p-5 text-slate-400 font-black bg-slate-100 rounded-2xl">취소</button>
+               <button 
+                  onClick={handleDeleteAllLogs}
+                  disabled={!deleteLogsPassword || isProcessingLogs}
+                  className="flex-[2] p-5 text-white bg-rose-600 rounded-2xl font-black disabled:opacity-50"
+                >
+                  {isProcessingLogs ? '삭제 중...' : '데이터 말소'}
                </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* 전체 이력 삭제 확인 모달 */}
-      {showLogDeleteConfirm && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
-          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden text-center p-12 space-y-8 animate-modal-pop">
-             <div className="w-20 h-20 bg-rose-50 rounded-[2rem] flex items-center justify-center text-rose-500 mx-auto border border-rose-100">
-                <ShieldCheck className="w-10 h-10" />
-             </div>
-             
-             <div className="space-y-2">
-                <h3 className="text-2xl font-black text-slate-900 tracking-tight">이력 데이터 영구 삭제</h3>
-                <p className="text-slate-500 font-medium text-sm leading-relaxed">
-                  전사 <span className="text-rose-600 font-black">조직 변경 이력</span>이 모두 삭제되며,<br />
-                  이 작업은 <span className="underline decoration-rose-200 decoration-4">복구할 수 없습니다.</span>
-                </p>
-             </div>
-
-             <div className="space-y-4">
-                <div className="relative">
-                  <ShieldCheck className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                  <input 
-                    type="password"
-                    placeholder="최고관리자 비밀번호를 입력하세요"
-                    value={deleteLogsPassword}
-                    onChange={(e) => setDeleteLogsPassword(e.target.value)}
-                    className="w-full pl-14 pr-6 py-5 bg-slate-50 rounded-2xl border-2 border-slate-100 outline-none focus:border-rose-500 transition-all font-bold text-lg"
-                  />
-                </div>
-                
-                <div className="flex gap-4">
-                   <button 
-                    onClick={() => { setShowLogDeleteConfirm(false); setDeleteLogsPassword(''); }}
-                    className="flex-1 py-5 bg-slate-100 text-slate-500 font-black rounded-2xl hover:bg-slate-200 transition-all"
-                   >
-                     취소
-                   </button>
-                   <button 
-                    onClick={handleDeleteAllLogs}
-                    disabled={!deleteLogsPassword || isProcessingLogs}
-                    className="flex-2 px-10 py-5 bg-rose-600 text-white font-black rounded-2xl shadow-xl shadow-rose-100 hover:bg-rose-700 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
-                   >
-                     {isProcessingLogs ? <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : <Trash2 className="w-5 h-5" />}
-                     전체 삭제 승인
-                   </button>
-                </div>
-             </div>
           </div>
         </div>
       )}
