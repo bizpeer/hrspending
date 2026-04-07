@@ -1,37 +1,26 @@
-import React, { useState } from 'react';
-import { Megaphone, Plus, Search, ChevronDown, Bell, Clock, User, ArrowRight, ExternalLink } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  Megaphone, Plus, Search, ChevronDown, Bell, Clock, User, ArrowRight, 
+  Trash2, Edit3, X, UploadCloud, Loader2, FileText, CheckCircle
+} from 'lucide-react';
+import { collection, onSnapshot, query, addDoc, doc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../firebase';
+import { format } from 'date-fns';
+import { useAuthStore } from '../store/authStore';
 
 interface Notice {
   id: string;
   title: string;
   content: string;
   authorId: string;
+  authorName: string;
   createdAt: string;
   category: string;
-  isGlobal: boolean;
+  attachmentUrl?: string;
+  attachmentName?: string;
   readBy: string[];
 }
-
-const MOCK_NOTICES: Notice[] = [
-  { 
-    id: 'n1', title: '[필독] 3월 전사 회식 및 워크샵 안내', 
-    category: '행사/워크샵',
-    content: '금월 마지막 주 금요일에 전사 워크샵이 진행됩니다. 참석 여부를 HR로 회신 바랍니다. 행사장소는 가평 인근 리조트이며, 오전 10시 본사 앞에서 버스로 출발합니다.',
-    authorId: 'HR_ADMIN', createdAt: '2026-03-30', isGlobal: true, readBy: ['uid1', 'uid2'] 
-  },
-  { 
-    id: 'n2', title: '지출결의 양식 변경 공지', 
-    category: '규정/절차',
-    content: '본부장 2단계 승인을 위해 지출결의 폼에 신규 카테고리가 추가되었습니다. 4월 1일부터는 새로운 양식으로만 제출 가능하오니 참고 부탁드립니다.',
-    authorId: 'FINANCE_DIRECTOR', createdAt: '2026-03-29', isGlobal: true, readBy: ['uid1'] 
-  },
-  { 
-    id: 'n3', title: '신규 임직원 휴가 규정 안내 (개정판)', 
-    category: '복리후생',
-    content: '한국 근로기준법 통과에 따른 1년 미만 입사자 연차 적용 방식 변경 안내문입니다. 신입 사원분들께서는 변경된 연차 발생 기준을 확인하시어 휴가 계획에 차질 없으시길 바랍니다.',
-    authorId: 'DIRECTOR', createdAt: '2026-03-25', isGlobal: true, readBy: [] 
-  }
-];
 
 interface NoticeBoardProps {
   userRole: 'ADMIN' | 'SUB_ADMIN' | 'EMPLOYEE' | string;
@@ -39,18 +28,123 @@ interface NoticeBoardProps {
 }
 
 export const NoticeBoard: React.FC<NoticeBoardProps> = ({ userRole, currentUserId }) => {
+  const { userData } = useAuthStore();
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedNoticeId, setExpandedNoticeId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const isAdmin = userRole === 'ADMIN' || userRole === 'SUB_ADMIN';
+
+  // 폼 필드
+  const [editingNotice, setEditingNotice] = useState<Notice | null>(null);
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [category, setCategory] = useState('공지');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const isAdmin = userRole === 'ADMIN';
+  const isManager = userRole === 'ADMIN' || userRole === 'SUB_ADMIN';
+
+  useEffect(() => {
+    const q = query(collection(db, 'notices'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snap) => {
+      setNotices(snap.docs.map(d => ({ id: d.id, ...d.data() } as Notice)));
+      setLoading(false);
+    }, (err) => {
+      console.error("Notice Fetch Error:", err);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const handleNoticeClick = (noticeId: string) => {
     setExpandedNoticeId(prev => prev === noticeId ? null : noticeId);
   };
 
-  const filteredNotices = MOCK_NOTICES.filter(n => 
+  const handleOpenModal = (notice?: Notice) => {
+    if (notice) {
+      setEditingNotice(notice);
+      setTitle(notice.title);
+      setContent(notice.content);
+      setCategory(notice.category);
+    } else {
+      setEditingNotice(null);
+      setTitle('');
+      setContent('');
+      setCategory('공지');
+    }
+    setSelectedFile(null);
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      let attachmentUrl = editingNotice?.attachmentUrl || '';
+      let attachmentName = editingNotice?.attachmentName || '';
+
+      if (selectedFile) {
+        const fileRef = ref(storage, `notices/${currentUserId}/${Date.now()}_${selectedFile.name}`);
+        const uploadResult = await uploadBytes(fileRef, selectedFile);
+        attachmentUrl = await getDownloadURL(uploadResult.ref);
+        attachmentName = selectedFile.name;
+      }
+
+      const noticeData = {
+        title,
+        content,
+        category,
+        attachmentUrl,
+        attachmentName,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (editingNotice) {
+        await updateDoc(doc(db, 'notices', editingNotice.id), noticeData);
+      } else {
+        await addDoc(collection(db, 'notices'), {
+          ...noticeData,
+          authorId: currentUserId,
+          authorName: userData?.name || '관리자',
+          createdAt: new Date().toISOString(),
+          readBy: []
+        });
+      }
+
+      setIsModalOpen(false);
+      alert(editingNotice ? "수정되었습니다." : "공지가 등록되었습니다.");
+    } catch (err) {
+      alert("처리 실패: " + (err as Error).message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, notice: Notice) => {
+    e.stopPropagation();
+    if (!window.confirm("공지를 삭제하시겠습니까?")) return;
+    try {
+      await deleteDoc(doc(db, 'notices', notice.id));
+      alert("삭제되었습니다.");
+    } catch (err) {
+      alert("삭제 실패: " + (err as Error).message);
+    }
+  };
+
+  const filteredNotices = notices.filter(n => 
     n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
     n.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-slate-50 min-h-screen">
+        <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 p-4 md:p-10 bg-slate-50 min-h-screen">
@@ -80,8 +174,11 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({ userRole, currentUserI
               <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-indigo-500 transition-colors" />
             </div>
             
-            {isAdmin && (
-              <button className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 shrink-0">
+            {isManager && (
+              <button 
+                onClick={() => handleOpenModal()}
+                className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all active:scale-95 shrink-0"
+              >
                 <Plus className="w-5 h-5" />
                 <span className="hidden sm:inline">새 공지</span>
               </button>
@@ -92,10 +189,10 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({ userRole, currentUserI
         {/* Categories / Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
            {[
-             { label: 'Unread', count: MOCK_NOTICES.filter(n => !n.readBy.includes(currentUserId)).length, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-             { label: 'Total', count: MOCK_NOTICES.length, color: 'text-slate-600', bg: 'bg-slate-100' },
-             { label: 'Events', count: 1, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-             { label: 'Rules', count: 2, color: 'text-amber-600', bg: 'bg-amber-50' }
+             { label: 'Unread', count: notices.filter(n => !n.readBy.includes(currentUserId)).length, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+             { label: 'Total', count: notices.length, color: 'text-slate-600', bg: 'bg-slate-100' },
+             { label: 'Events', count: notices.filter(n => n.category === '행사/워크샵').length, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+             { label: 'Rules', count: notices.filter(n => n.category === '규정/절차').length, color: 'text-amber-600', bg: 'bg-amber-50' }
            ].map((stat, i) => (
              <div key={i} className={`p-4 rounded-3xl ${stat.bg} border border-white flex flex-col items-center justify-center space-y-1`}>
                 <span className={`text-[10px] font-black uppercase tracking-widest ${stat.color} opacity-60`}>{stat.label}</span>
@@ -124,10 +221,10 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({ userRole, currentUserI
                          isUnread ? 'bg-indigo-600 border-indigo-400 text-white' : 'bg-white border-slate-100 text-slate-400'
                        }`}>
                           <span className="text-[10px] font-black leading-none mb-1 uppercase tracking-tighter">
-                            {notice.createdAt.split('-')[1]}월
+                            {notice.createdAt ? format(new Date(notice.createdAt), 'MM') : '--'}월
                           </span>
                           <span className="text-xl font-black leading-none">
-                            {notice.createdAt.split('-')[2]}
+                            {notice.createdAt ? format(new Date(notice.createdAt), 'dd') : '--'}
                           </span>
                        </div>
                     </div>
@@ -165,13 +262,29 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({ userRole, currentUserI
                                 <div className="flex flex-col items-end">
                                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
                                       <User className="w-3.5 h-3.5" />
-                                      {notice.authorId}
+                                      {notice.authorName || '관리자'}
                                    </div>
-                                   <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 md:hidden">
+                                   <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400">
                                       <Clock className="w-3 h-3" />
-                                      {notice.createdAt}
+                                      {notice.createdAt ? format(new Date(notice.createdAt), 'yyyy-MM-dd') : ''}
                                    </div>
                                 </div>
+                                {(isAdmin || notice.authorId === currentUserId) && (
+                                  <div className="flex items-center gap-1 border-l border-slate-100 pl-4 ml-2">
+                                     <button 
+                                      onClick={(e) => { e.stopPropagation(); handleOpenModal(notice); }}
+                                      className="p-1.5 text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all"
+                                     >
+                                        <Edit3 className="w-4 h-4" />
+                                     </button>
+                                     <button 
+                                      onClick={(e) => handleDelete(e, notice)}
+                                      className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                                     >
+                                        <Trash2 className="w-4 h-4" />
+                                     </button>
+                                  </div>
+                                )}
                                 <div className={`p-2 rounded-full bg-slate-50 transition-transform duration-500 ${isExpanded ? 'rotate-180 bg-indigo-50 text-indigo-600' : 'text-slate-300'}`}>
                                    <ChevronDown className="w-5 h-5" />
                                 </div>
@@ -179,19 +292,24 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({ userRole, currentUserI
                           </div>
 
                           <div className={`transition-all duration-700 overflow-hidden ${isExpanded ? 'max-h-[500px] opacity-100 mt-6' : 'max-h-0 opacity-0'}`}>
-                             <div className="p-6 bg-slate-50/50 rounded-3xl border border-slate-100 font-medium text-slate-700 leading-relaxed whitespace-pre-wrap">
+                             <div className="p-6 bg-slate-50/50 rounded-3xl border border-slate-100 font-medium text-slate-700 leading-relaxed whitespace-pre-wrap text-sm">
                                 {notice.content}
                                 
-                                <div className="mt-8 pt-6 border-t border-slate-200/50 flex flex-wrap gap-4">
-                                   <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600/10 text-indigo-600 text-xs font-black rounded-xl hover:bg-indigo-600 hover:text-white transition-all group">
-                                      관련 문서 확인
-                                      <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                                   </button>
-                                   <button className="flex items-center gap-2 px-4 py-2 text-slate-400 text-xs font-black rounded-xl hover:text-slate-600 transition-all">
-                                      <ExternalLink className="w-3.5 h-3.5" />
-                                      외부 링크
-                                   </button>
-                                </div>
+                                {notice.attachmentUrl && (
+                                  <div className="mt-8 pt-6 border-t border-slate-200/50">
+                                     <a 
+                                      href={notice.attachmentUrl} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-xs font-black rounded-xl hover:bg-indigo-700 transition-all group shadow-lg shadow-indigo-100"
+                                     >
+                                        <FileText className="w-3.5 h-3.5" />
+                                        첨부문서: {notice.attachmentName}
+                                        <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                                     </a>
+                                  </div>
+                                )}
                              </div>
                           </div>
                        </div>
@@ -211,6 +329,110 @@ export const NoticeBoard: React.FC<NoticeBoardProps> = ({ userRole, currentUserI
            )}
         </div>
       </div>
+
+      {/* 공지 작성/수정 모달 */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
+          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl overflow-hidden border border-slate-100 animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-indigo-600 text-white">
+              <div className="flex items-center gap-3">
+                 <Bell className="w-6 h-6 fill-current" />
+                 <h2 className="text-2xl font-black tracking-tight">{editingNotice ? '공지사항 수정' : '신규 공지 등록'}</h2>
+              </div>
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className="p-2.5 bg-white/10 hover:bg-white/20 rounded-2xl transition-all"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-8 space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                   <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">제목</label>
+                   <input 
+                    type="text" required value={title} onChange={(e) => setTitle(e.target.value)}
+                    placeholder="공지 제목을 입력하세요"
+                    className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:border-indigo-500 outline-none transition-all font-bold"
+                   />
+                </div>
+                <div className="space-y-2">
+                   <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">카테고리</label>
+                   <select 
+                    value={category} onChange={(e) => setCategory(e.target.value)}
+                    className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:border-indigo-500 outline-none transition-all font-bold appearance-none"
+                   >
+                     <option value="공지">일반 공지</option>
+                     <option value="행사/워크샵">행사 / 워크샵</option>
+                     <option value="규정/절차">규정 / 절차</option>
+                     <option value="복리후생">복리후생</option>
+                   </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                 <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">상세 내용</label>
+                 <textarea 
+                  required value={content} onChange={(e) => setContent(e.target.value)}
+                  rows={6} placeholder="공지 내용을 상세히 작성하세요..."
+                  className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:border-indigo-500 outline-none transition-all font-medium leading-relaxed resize-none text-sm"
+                 />
+              </div>
+
+              <div className="space-y-2">
+                 <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">PDF 문서 첨부</label>
+                 <div className="relative group/upload">
+                   <input 
+                    type="file" accept=".pdf" 
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                    className="hidden" id="notice-file-upload"
+                   />
+                   <label 
+                    htmlFor="notice-file-upload"
+                    className={`flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed rounded-[2rem] transition-all cursor-pointer ${
+                      selectedFile ? 'border-emerald-200 bg-emerald-50/30' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
+                    }`}
+                   >
+                      {selectedFile ? (
+                        <>
+                          <CheckCircle className="w-10 h-10 text-emerald-500" />
+                          <div className="text-center">
+                            <p className="text-sm font-black text-slate-700">{selectedFile.name}</p>
+                            <p className="text-[10px] text-emerald-600 font-bold">변경하려면 클릭하세요</p>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <UploadCloud className="w-10 h-10 text-slate-300 group-hover/upload:text-indigo-400 transition-colors" />
+                          <div className="text-center">
+                            <p className="text-sm font-black text-slate-500">클릭하여 PDF 파일을 업로드하세요</p>
+                            <p className="text-[10px] text-slate-400 font-bold">최대 10MB / PDF 파일만 허용</p>
+                          </div>
+                        </>
+                      )}
+                   </label>
+                 </div>
+              </div>
+
+              <div className="pt-4 flex gap-4">
+                 <button 
+                  type="button" onClick={() => setIsModalOpen(false)}
+                  className="flex-1 py-4 bg-slate-100 text-slate-500 font-black rounded-2xl hover:bg-slate-200 transition-all"
+                 >
+                   취소
+                 </button>
+                 <button 
+                  type="submit" disabled={isSubmitting}
+                  className="flex-[2] py-4 bg-indigo-600 text-white font-black rounded-2xl shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                 >
+                   {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : (editingNotice ? '수정 완료' : '공지 게시')}
+                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
