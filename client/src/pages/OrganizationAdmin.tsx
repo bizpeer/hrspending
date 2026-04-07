@@ -124,6 +124,8 @@ export const OrganizationAdmin: React.FC = () => {
     ? teams.filter((team) => team.divisionId === selectedDivision)
     : teams;
 
+  const unassignedEmployees = employees.filter(emp => !emp.teamId || emp.teamId === '');
+
   const handleCreateDivision = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDivName.trim()) return;
@@ -462,8 +464,56 @@ export const OrganizationAdmin: React.FC = () => {
               </div>
 
               <div className="p-8">
-                {filteredTeams.length > 0 ? (
+                {filteredTeams.length > 0 || unassignedEmployees.length > 0 ? (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* 팀 미배정 사원 카드 추가 */}
+                    {unassignedEmployees.length > 0 && !selectedDivision && (
+                      <div className="group p-8 rounded-[2.5rem] border-2 border-amber-100 bg-amber-50/20 hover:bg-white hover:border-amber-300 hover:shadow-2xl transition-all duration-500">
+                        <div className="flex justify-between items-start mb-6">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-[10px] font-black text-amber-600 uppercase tracking-widest bg-white px-2 py-0.5 rounded-lg border border-amber-100">
+                                Unassigned
+                              </span>
+                            </div>
+                            <h4 className="text-xl font-black text-slate-900 tracking-tight">팀 미배정 구성원</h4>
+                          </div>
+                          <div className="p-2 bg-amber-100 text-amber-600 rounded-xl">
+                            <Users className="w-5 h-5" />
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                             <div className="flex items-center justify-between px-1">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">배정 대기 ({unassignedEmployees.length})</span>
+                             </div>
+                             <div className="flex flex-wrap gap-2">
+                               {unassignedEmployees.map(emp => (
+                                 <div 
+                                   key={emp.uid} 
+                                   className="group/tag flex items-center gap-3 bg-white border border-slate-100 px-4 py-2.5 rounded-2xl shadow-sm hover:border-amber-500 hover:scale-[1.05] transition-all cursor-pointer"
+                                   onClick={() => { setEditingEmployee(emp); setShowEditModal(true); }}
+                                 >
+                                   <div className="w-6 h-6 rounded-full bg-amber-50 flex items-center justify-center text-[10px] font-black text-amber-600 group-hover/tag:bg-amber-100">
+                                      {emp.name.charAt(0)}
+                                   </div>
+                                   <span className="text-xs font-black text-slate-700">{emp.name}</span>
+                                   <X 
+                                     className="w-3.5 h-3.5 text-slate-200 hover:text-rose-500 transition-colors" 
+                                     onClick={(e) => { e.stopPropagation(); handleDeleteEmployee(emp.uid, emp.name); }}
+                                   />
+                                 </div>
+                               ))}
+                             </div>
+                          </div>
+                          <p className="text-[10px] text-amber-600/60 font-medium italic pt-2">
+                            * 직원을 클릭하여 팀을 배정하거나 역할을 수정할 수 있습니다.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
                     {filteredTeams.map((team) => (
                       <div key={team.id} className="group p-8 rounded-[2.5rem] border-2 border-slate-50 bg-slate-50/30 hover:bg-white hover:border-indigo-100 hover:shadow-2xl transition-all duration-500">
                         <div className="flex justify-between items-start mb-6">

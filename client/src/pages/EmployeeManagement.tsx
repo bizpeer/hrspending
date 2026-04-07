@@ -68,14 +68,37 @@ export const EmployeeManagement: React.FC = () => {
     return () => { unsubDivs(); unsubTeams(); unsubEmployees(); };
   }, []);
 
-  // Filtered List
-  const filteredEmployees = employees.filter(emp => {
-    const matchesDiv = selectedDivision === 'ALL' || emp.divisionId === selectedDivision;
-    const matchesTeam = selectedTeam === 'ALL' || emp.teamId === selectedTeam;
-    const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          emp.email.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesDiv && matchesTeam && matchesSearch;
-  });
+  // Filtered List with De-duplication
+  const filteredEmployees = (() => {
+    // 1. 이메일 기준으로 그룹화하여 중복 제거 (가장 높은 권한 우선)
+    const grouped = employees.reduce((acc, emp) => {
+      const email = emp.email?.toLowerCase().trim();
+      if (!email) return acc;
+      
+      if (!acc[email]) {
+        acc[email] = emp;
+      } else {
+        const roleOrder: Record<string, number> = { 'ADMIN': 3, 'SUB_ADMIN': 2, 'EMPLOYEE': 1 };
+        const currentPrio = roleOrder[acc[email].role] || 0;
+        const newPrio = roleOrder[emp.role] || 0;
+        if (newPrio > currentPrio) {
+          acc[email] = emp;
+        }
+      }
+      return acc;
+    }, {} as Record<string, Employee>);
+
+    // 2. 필터링 및 정렬 적용
+    return Object.values(grouped)
+      .filter(emp => {
+        const matchesDiv = selectedDivision === 'ALL' || emp.divisionId === selectedDivision;
+        const matchesTeam = selectedTeam === 'ALL' || emp.teamId === selectedTeam;
+        const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                              emp.email.toLowerCase().includes(searchTerm.toLowerCase());
+        return matchesDiv && matchesTeam && matchesSearch;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  })();
 
   const handleShowRecords = async (emp: Employee) => {
     setLoading(true);
