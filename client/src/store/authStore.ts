@@ -26,7 +26,12 @@ export interface UserData {
   usedLeave?: number; // 사용한 연차
   mustChangePassword?: boolean; // 최초 로그인 시 비밀번호 변경 여부
   status?: 'ACTIVE' | 'RESIGNED'; // 계정 상태
-  annualSalary?: number; // 연봉 (원)
+  annualSalary?: number; // 연봉/월급 (원)
+  salaryType?: 'ANNUAL' | 'MONTHLY'; // 연봉 혹은 월급
+  isSeveranceIncluded?: boolean; // 퇴직금 포함 여부
+  dependents?: number; // 부양가족 수 (본인 포함)
+  childrenUnder20?: number; // 20세 이하 자녀 수
+  nonTaxable?: number; // 비과세액 (기본 200,000원)
 }
 
 interface AuthState {
