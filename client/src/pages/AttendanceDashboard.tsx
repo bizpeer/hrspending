@@ -92,16 +92,19 @@ export const AttendanceDashboard: React.FC = () => {
       return;
     }
 
-    // KST 기준으로 오늘 날짜 (YYYY-MM-DD) 계산
-    // 에러 방지를 위해 시간 부분을 00:00:00으로 설정한 비교용 문자열 생성
+    // [수정] KST 기준 오늘의 시작 시각(00:00:00)을 UTC ISO 문자열로 변환
+    // 한국 시간 00:00:00은 UTC 시간으로 전일 15:00:00입니다.
     const now = new Date();
-    const today = new Intl.DateTimeFormat('fr-CA', { timeZone: 'Asia/Seoul' }).format(now);
+    const kstDateStr = new Intl.DateTimeFormat('fr-CA', { timeZone: 'Asia/Seoul' }).format(now);
+    const kstStartOfDay = new Date(`${kstDateStr}T00:00:00+09:00`);
+    const startOfKstDayISO = kstStartOfDay.toISOString();
     
-    console.log("[Attendance] Fetching today's records for:", today);
+    console.log("[Attendance] Fetching records starting from KST 00:00 (UTC):", startOfKstDayISO);
+    
     const q = query(
       collection(db, 'attendance'),
       where('userId', '==', user.uid),
-      where('timestamp', '>=', today)
+      where('timestamp', '>=', startOfKstDayISO)
     );
 
     const unsubscribe = onSnapshot(q, (snap) => {
@@ -230,10 +233,10 @@ export const AttendanceDashboard: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
           {/* Action Cards */}
-          <div className="lg:col-span-4 space-y-6">
-            <div className="bg-white rounded-[2.5rem] shadow-2xl p-8 border border-slate-100 relative overflow-hidden group">
+          <div className="lg:col-span-4 flex flex-col gap-6">
+            <div className="bg-white rounded-[2.5rem] shadow-2xl p-8 border border-slate-100 relative overflow-hidden group flex-1">
               <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-50 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110 duration-700"></div>
               
               <div className="relative z-10">
