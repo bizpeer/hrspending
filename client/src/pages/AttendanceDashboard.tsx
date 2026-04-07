@@ -131,6 +131,20 @@ export const AttendanceDashboard: React.FC = () => {
       setLoginModalOpen(true);
       return;
     }
+
+    // 중복 기록 방지 로직 추가
+    if (type === 'IN' && hasCheckedInToday) {
+      alert('이미 출근했습니다.');
+      return;
+    }
+    if (type === 'OUT' && hasCheckedOutToday) {
+      alert('이미 퇴근했습니다.');
+      return;
+    }
+    if (type === 'OUT' && !hasCheckedInToday) {
+      alert('출근 기록이 먼저 필요합니다.');
+      return;
+    }
     
     setIsSubmitting(true);
     try {
