@@ -82,7 +82,7 @@ export const AttendanceDashboard: React.FC = () => {
         userName: userData?.name || '근로자',
         type: type,
         timestamp: timestamp,
-        location: '본사 (IP 인증됨)',
+        location: '본사',
         createdAt: timestamp
       };
       
@@ -99,6 +99,8 @@ export const AttendanceDashboard: React.FC = () => {
   };
 
   const lastStatus = records[0];
+  const hasCheckedInToday = records.some(r => r.type === 'IN');
+  const hasCheckedOutToday = records.some(r => r.type === 'OUT');
 
   // 연차 요약 로직 추가
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
@@ -183,25 +185,25 @@ export const AttendanceDashboard: React.FC = () => {
                 </div>
 
                 <h2 className="text-xl font-black text-slate-800 mb-2">근무 체크인/아웃</h2>
-                <p className="text-sm text-slate-500 mb-8 leading-relaxed">회사의 보안 규정에 따라 지정된 IP 대역에서만 기록이 유효합니다.</p>
+                <p className="text-sm text-slate-500 mb-8 leading-relaxed">회사의 보안 규정에 따라 지정된 구역에서만 기록이 유효합니다.</p>
 
                 <div className="space-y-4">
                   <button 
                     onClick={() => handleAttendance('IN')}
-                    disabled={isSubmitting || lastStatus?.type === 'IN'}
+                    disabled={isSubmitting || hasCheckedInToday}
                     className="w-full flex justify-center items-center gap-3 py-5 bg-indigo-600 text-white font-black rounded-3xl shadow-xl shadow-indigo-200 hover:bg-indigo-700 transition-all active:scale-95 disabled:opacity-30 disabled:grayscale disabled:pointer-events-none group"
                   >
                     {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : <LogIn className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />}
-                    출근하기
+                    {hasCheckedInToday ? '출근 완료' : '출근하기'}
                   </button>
                   
                   <button 
                     onClick={() => handleAttendance('OUT')}
-                    disabled={isSubmitting || !lastStatus || lastStatus?.type === 'OUT'}
+                    disabled={isSubmitting || !hasCheckedInToday || hasCheckedOutToday}
                     className="w-full flex justify-center items-center gap-3 py-5 bg-white text-rose-600 border-2 border-rose-100 font-black rounded-3xl hover:bg-rose-50 transition-all active:scale-95 disabled:opacity-30 disabled:pointer-events-none group"
                   >
                     {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : <LogOut className="w-6 h-6 group-hover:translate-x-1 transition-transform" />}
-                    퇴근하기
+                    {hasCheckedOutToday ? '퇴근 완료' : '퇴근하기'}
                   </button>
                 </div>
               </div>
