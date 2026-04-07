@@ -78,6 +78,13 @@ service cloud.firestore {
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
+    
+    // 공지사항 (notices)
+    match /notices/{noticeId} {
+      allow read: if isAuthenticated();
+      allow write: if isManagement();
+      allow delete: if isAdmin();
+    }
 
     // 기본 규칙: 그 외 모든 컬렉션은 가급적 어드민만 접근 가능하게 방어
     match /{document=**} {
