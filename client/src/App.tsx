@@ -80,7 +80,7 @@ function App() {
                   <Route path="/expense" element={<ProtectedRoute><ExpenseForm /></ProtectedRoute>} />
                   <Route path="/board" element={<ProtectedRoute><NoticeBoard userRole={userData?.role || 'EMPLOYEE'} currentUserId={userData?.uid || ''} /></ProtectedRoute>} />
 
-                  <Route path="/admin/organization" element={<ProtectedRoute requireMasterAdmin><OrganizationAdmin /></ProtectedRoute>} />
+                  <Route path="/admin/organization" element={<ProtectedRoute requireAdmin><OrganizationAdmin /></ProtectedRoute>} />
                   <Route path="/admin/approvals" element={<ProtectedRoute requireAdmin><AdminApprovals /></ProtectedRoute>} />
                   <Route path="/admin/finance-stats" element={<ProtectedRoute requireAdmin><ExpenseAdminDashboard /></ProtectedRoute>} />
                   <Route path="/admin/employees" element={<ProtectedRoute requireAdmin><EmployeeManagement /></ProtectedRoute>} />
