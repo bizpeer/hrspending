@@ -39,7 +39,9 @@ export const AttendanceDashboard: React.FC = () => {
       return;
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    // KST 기준으로 오늘 날짜 (YYYY-MM-DD) 계산
+    const today = new Intl.DateTimeFormat('fr-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
+    console.log("[Attendance] Fetching records for date:", today);
     const q = query(
       collection(db, 'attendance'),
       where('userId', '==', user.uid),
@@ -65,23 +67,32 @@ export const AttendanceDashboard: React.FC = () => {
   }, [user?.uid]);
 
   const handleAttendance = async (type: 'IN' | 'OUT') => {
+    console.log(`[Attendance] Attempting ${type} check...`);
     if (!user) {
+      console.warn("[Attendance] No authenticated user found.");
       setLoginModalOpen(true);
       return;
     }
     
     setIsSubmitting(true);
     try {
-      await addDoc(collection(db, 'attendance'), {
+      const timestamp = new Date().toISOString();
+      const attendanceData = {
         userId: user.uid,
         userName: userData?.name || '근로자',
         type: type,
-        timestamp: new Date().toISOString(),
+        timestamp: timestamp,
         location: '본사 (IP 인증됨)',
-        createdAt: new Date().toISOString()
-      });
+        createdAt: timestamp
+      };
+      
+      console.log("[Attendance] Sending data:", attendanceData);
+      const docRef = await addDoc(collection(db, 'attendance'), attendanceData);
+      console.log("[Attendance] Success! Created doc ID:", docRef.id);
     } catch (e) {
-      alert('기록 중 오류가 발생했습니다: ' + (e as Error).message);
+      const error = e as Error;
+      console.error("[Attendance] Error during creation:", error);
+      alert('기록 중 오류가 발생했습니다: ' + error.message);
     } finally {
       setIsSubmitting(false);
     }
