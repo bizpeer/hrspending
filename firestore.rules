@@ -21,13 +21,13 @@ service cloud.firestore {
     // 본부 관리 (divisions)
     match /divisions/{divisionId} {
       allow read: if isAuthenticated();
-      allow write: if isManagement() || isMaster();
+      allow write: if isAdmin() || isMaster();
     }
 
     // 팀 관리 (teams)
     match /teams/{teamId} {
       allow read: if isAuthenticated();
-      allow write: if isManagement() || isMaster();
+      allow write: if isAdmin() || isMaster();
     }
 
     // 마스터 계정 확인 (최고 관리자)
@@ -39,23 +39,18 @@ service cloud.firestore {
     match /UserProfile/{userId} {
       allow read: if isAuthenticated();
       
-      // 마스터/어드민/부관리자 모두 신규 직원(UserProfile) 생성이 가능하게 함 (단, 연봉 정보는 수정 불가 규칙 따름)
-      allow create: if isAuthenticated() && (isMaster() || isManagement());
+      allow create: if isAuthenticated() && (isMaster() || isAdmin());
 
       allow update: if isAuthenticated() && (
-        isMaster() || isAdmin() || // 마스터/최고관리자는 모든 필드 수정 가능
+        isMaster() || isAdmin() ||
         ( 
-          isSubAdmin() && // 부관리자는 급여 필드 제외한 모든 구성원 정보 수정 가능
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['annualSalary', 'salaryType', 'isSeveranceIncluded', 'dependents', 'childrenUnder20', 'nonTaxable'])
-        ) ||
-        ( 
-          (request.auth.uid == userId) && // 본인인 경우 급여 필드 제외한 본인 정보 수정 가능
+          (request.auth.uid == userId) && 
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['annualSalary', 'salaryType', 'isSeveranceIncluded', 'dependents', 'childrenUnder20', 'nonTaxable'])
         )
       );
 
-      // 마스터/어드민/부관리자는 직원 삭제(resignation 등)가 가능하게 함
-      allow delete: if isAuthenticated() && (isMaster() || isManagement() || resource.data.email == request.auth.token.email);
+      // 마스터/어드민은 직원 삭제(resignation 등)가 가능하게 함
+      allow delete: if isAuthenticated() && (isAdmin() || isMaster() || resource.data.email == request.auth.token.email);
     }
 
     // 결재 승인 관련 유틸리티 함수
