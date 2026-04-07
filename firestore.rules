@@ -20,12 +20,14 @@ service cloud.firestore {
 
     // 본부 관리 (divisions)
     match /divisions/{divisionId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isMaster();
     }
 
     // 팀 관리 (teams)
     match /teams/{teamId} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isMaster();
     }
 
     // 마스터 계정 확인 (최고 관리자)
