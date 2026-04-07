@@ -118,7 +118,8 @@ export const AdminApprovals: React.FC = () => {
 
     return requests.filter(req => {
       // 1. 상태 필터 (대기/승인/반려/전체)
-      const statusMatch = filter === 'ALL' || req.status === filter;
+      const statusMatch = filter === 'ALL' || 
+                         (filter === 'PENDING' ? (req.status === 'PENDING' || req.status === 'SUB_APPROVED') : req.status === filter);
       
       // 2. 월별 필터 (createdAt 기준)
       const reqDate = req.createdAt ? new Date(req.createdAt) : null;
@@ -439,9 +440,10 @@ export const AdminApprovals: React.FC = () => {
 
            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl group">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Waitings Task</p>
-              <div className="text-4xl font-black text-slate-900 mb-4 tracking-tighter">
-                 {(leaveRequests.filter(r => r.status === 'PENDING').length + expenseRequests.filter(r => r.status === 'PENDING').length)}
-              </div>
+               <div className="text-4xl font-black text-slate-900 mb-4 tracking-tighter">
+                  {(leaveRequests.filter(r => r.status === 'PENDING' || r.status === 'SUB_APPROVED').length + 
+                    expenseRequests.filter(r => r.status === 'PENDING' || r.status === 'SUB_APPROVED').length)}
+               </div>
               <div className="flex items-center gap-2 text-amber-500 text-xs font-black">
                  <Clock className="w-4 h-4 animate-spin-slow" />
                  <span>전체 미처리 안건 (실시간)</span>
@@ -549,8 +551,13 @@ export const AdminApprovals: React.FC = () => {
                  <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-100 rounded-2xl">
                     <Clock className="w-5 h-5 text-amber-500 animate-spin-slow" />
                     <div>
-                       <p className="text-[10px] font-black text-amber-800 uppercase tracking-tight">Current Status</p>
-                       <p className="text-xs font-bold text-amber-600">현재 이 문서는 <span className="underline">{selectedRequest.status === 'PENDING' ? '검토 중' : selectedRequest.status}</span> 상태입니다.</p>
+                        <p className="text-xs font-bold text-amber-600">
+                          현재 이 문서는 <span className="underline font-black">{
+                            selectedRequest.status === 'PENDING' ? '1차 검토 대기' : 
+                            selectedRequest.status === 'SUB_APPROVED' ? '2차 최종 승인 대기' : 
+                            selectedRequest.status === 'APPROVED' ? '최종 승인 완료' : '반려됨'
+                          }</span> 상태입니다.
+                        </p>
                     </div>
                  </div>
 
