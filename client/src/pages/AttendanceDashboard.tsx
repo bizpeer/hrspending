@@ -38,7 +38,9 @@ export const AttendanceDashboard: React.FC = () => {
 
   // 관리자일 경우 전체 사용자 목록 페칭
   useEffect(() => {
-    if (userData?.role === 'ADMIN') {
+    const isManagementRole = userData?.role === 'ADMIN' || userData?.role === 'SUB_ADMIN';
+
+    if (isManagementRole) {
       const q = query(collection(db, 'UserProfile'));
       const unsubscribe = onSnapshot(q, (snap) => {
         setAllUsers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -370,8 +372,9 @@ export const AttendanceDashboard: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              {userData?.role === 'ADMIN' && (
+              {(userData?.role === 'ADMIN' || userData?.role === 'SUB_ADMIN') && (
                 <select
+                  id="attendance-user-selector"
                   value={selectedUserId}
                   onChange={(e) => setSelectedUserId(e.target.value)}
                   className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
@@ -386,6 +389,7 @@ export const AttendanceDashboard: React.FC = () => {
 
               <div className="flex items-center bg-slate-50 rounded-xl p-1 border border-slate-200">
                 <button
+                  id="calendar-prev-month"
                   onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
                   className="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all"
                 >
@@ -395,6 +399,7 @@ export const AttendanceDashboard: React.FC = () => {
                   {format(currentMonth, 'yyyy. MM')}
                 </span>
                 <button
+                  id="calendar-next-month"
                   onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
                   className="p-2 hover:bg-white hover:shadow-sm rounded-lg transition-all"
                 >
@@ -414,7 +419,7 @@ export const AttendanceDashboard: React.FC = () => {
             </div>
             <div className="grid grid-cols-7 gap-1">
               {Array.from({ length: startOfWeek(startOfMonth(currentMonth)).getDay() }).map((_, i) => (
-                <div key={`empty-${i}`} className="aspect-square"></div>
+                <div key={`empty-${i}`} className="h-9"></div>
               ))}
               
               {eachDayOfInterval({
@@ -430,7 +435,7 @@ export const AttendanceDashboard: React.FC = () => {
                 return (
                   <div 
                     key={day.toString()}
-                    className={`aspect-square relative flex items-center justify-center rounded-lg transition-all border ${
+                    className={`h-9 relative flex items-center justify-center rounded-lg transition-all border ${
                       isTodayLocal ? 'border-indigo-200 bg-indigo-50' : 'border-transparent hover:bg-slate-50'
                     } ${!isCurrentMonth ? 'opacity-20' : ''}`}
                   >
@@ -441,12 +446,12 @@ export const AttendanceDashboard: React.FC = () => {
                     </span>
                     
                     {hasCheckIn && (
-                      <div className="absolute top-1 right-1">
+                      <div className="absolute top-0.5 right-0.5">
                         <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full shadow-sm shadow-indigo-200"></div>
                       </div>
                     )}
                     {hasCheckOut && (
-                      <div className="absolute bottom-1 right-1">
+                      <div className="absolute bottom-0.5 right-0.5">
                         <div className="w-1.5 h-1.5 bg-rose-400 rounded-full shadow-sm shadow-rose-100"></div>
                       </div>
                     )}
