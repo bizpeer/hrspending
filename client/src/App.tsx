@@ -15,6 +15,7 @@ import { LoginModal } from './components/LoginModal';
 import { useAuthStore } from './store/authStore';
 import { LeaveApplication } from './pages/LeaveApplication';
 import { LoadingSplash } from './components/LoadingSplash';
+import { EmployeeManagement } from './pages/EmployeeManagement';
 
 function App() {
   const { initAuth, userData, loading } = useAuthStore();
@@ -81,6 +82,7 @@ function App() {
                   <Route path="/admin/organization" element={<ProtectedRoute requireAdmin><OrganizationAdmin /></ProtectedRoute>} />
                   <Route path="/admin/approvals" element={<ProtectedRoute requireAdmin><AdminApprovals /></ProtectedRoute>} />
                   <Route path="/admin/finance-stats" element={<ProtectedRoute requireAdmin><ExpenseAdminDashboard /></ProtectedRoute>} />
+                  <Route path="/admin/employees" element={<ProtectedRoute requireAdmin><EmployeeManagement /></ProtectedRoute>} />
                   <Route path="/admin/settings" element={<ProtectedRoute requireAdmin><AdminSettings /></ProtectedRoute>} />
 
                   <Route path="*" element={<Navigate to="/" replace />} />

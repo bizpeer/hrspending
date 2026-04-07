@@ -25,6 +25,7 @@ export interface UserData {
   annualLeaveTotal?: number; // 총 발생 연차
   usedLeave?: number; // 사용한 연차
   mustChangePassword?: boolean; // 최초 로그인 시 비밀번호 변경 여부
+  status?: 'ACTIVE' | 'RESIGNED'; // 계정 상태
 }
 
 interface AuthState {
@@ -106,6 +107,14 @@ export const useAuthStore = create<AuthState>((set) => ({
               await setDoc(doc(db, 'UserProfile', user.uid), currentData);
               console.log("[Auth] Master profile FORCED/RECOVERED to ADMIN.");
             }
+          }
+          
+          // [퇴사자 접속 차단]
+          if (currentData?.status === 'RESIGNED') {
+            await auth.signOut();
+            set({ user: null, userData: null, loading: false });
+            alert("퇴사 처리된 계정입니다. 시스템에 접속할 수 없습니다.");
+            return;
           }
           
           set({ userData: currentData, loading: false });
