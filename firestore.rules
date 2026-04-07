@@ -42,21 +42,11 @@ service cloud.firestore {
     }
 
     function isValidApproval(currentStatus, nextStatus, targetDivId) {
-      let isFinalSet = nextStatus == 'APPROVED';
-      let isSubSet = nextStatus == 'SUB_APPROVED';
-      let isReject = nextStatus == 'REJECTED';
-      let isUndo = nextStatus == 'PENDING';
-
-      // 1. 마스터 관리자(ADMIN)는 모든 것이 가능 (상태에 상관없이 최종 승인/반려/되돌리기)
-      if (isAdmin()) { return true; }
-
-      // 2. 부관리자(SUB_ADMIN) 제약
-      if (isSubAdminOfDivision(targetDivId)) {
-        // 부관리자는 'PENDING' 상태에서만 'SUB_APPROVED' 또는 'REJECTED'로 변경 가능
-        return currentStatus == 'PENDING' && (isSubSet || isReject);
-      }
-
-      return false;
+      return isAdmin() || (
+        isSubAdminOfDivision(targetDivId) && 
+        currentStatus == 'PENDING' && 
+        (nextStatus == 'SUB_APPROVED' || nextStatus == 'REJECTED')
+      );
     }
 
     // 경비 신청 (expenses)
