@@ -43,15 +43,22 @@ export const AttendanceDashboard: React.FC = () => {
     const q = query(
       collection(db, 'attendance'),
       where('userId', '==', user.uid),
-      where('timestamp', '>=', today),
-      orderBy('timestamp', 'desc'),
-      limit(10)
+      where('timestamp', '>=', today)
     );
 
     const unsubscribe = onSnapshot(q, (snap) => {
       const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
-      setRecords(docs);
+      // 클라이언트 사이드 정렬 (인덱스 에러 방지)
+      const sorted = [...docs].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+      setRecords(sorted.slice(0, 10));
       setLoading(false);
+    }, (err) => {
+      console.error("Attendance Subscribe Error:", err);
+      // 인덱스가 없는 경우 등 에러 발생 시 로딩 종료
+      setLoading(false);
+      if (err.code === 'permission-denied') {
+        console.error("권한이 없습니다. Firebase Rules를 확인하세요.");
+      }
     });
 
     return () => unsubscribe();
@@ -111,7 +118,14 @@ export const AttendanceDashboard: React.FC = () => {
                 </div>
                 <h1 className="text-3xl font-black text-slate-900 tracking-tight">근태 현황 대시보드</h1>
               </div>
-              <p className="text-slate-500 font-medium">{kstDate}</p>
+              <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-4">
+                <p className="text-slate-500 font-medium">{kstDate}</p>
+                <div className="hidden md:block w-px h-3 bg-slate-300"></div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black text-indigo-600">{userData?.name || '근로자'}</span>
+                  <span className="text-xs text-slate-400 font-bold">({userData?.email || user?.email || 'ID 미표기'})</span>
+                </div>
+              </div>
             </div>
 
             {/* 실시간 연차 요약 카드 (대시보드 상단 추가) */}
