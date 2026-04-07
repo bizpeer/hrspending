@@ -74,6 +74,7 @@ export const OrganizationAdmin: React.FC = () => {
   const [showLogDeleteConfirm, setShowLogDeleteConfirm] = useState(false);
   const [deleteLogsPassword, setDeleteLogsPassword] = useState('');
   const [isProcessingLogs, setIsProcessingLogs] = useState(false);
+  const [logSearchResults, setLogSearchResults] = useState<AuditLog[] | null>(null);
 
   // Firestore 데이터 실시간 구독
   useEffect(() => {
@@ -310,6 +311,18 @@ export const OrganizationAdmin: React.FC = () => {
     }
   };
 
+  const handleSearchLogs = () => {
+    if (!searchQuery.trim()) {
+      setLogSearchResults(null);
+      return;
+    }
+    const filtered = auditLogs.filter(log => 
+      log.targetName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      log.performedBy.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    setLogSearchResults(filtered);
+  };
+
   const getEmployeesInTeam = (teamId: string) => {
     return employees.filter(emp => emp.teamId === teamId);
   }
@@ -342,15 +355,23 @@ export const OrganizationAdmin: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="relative group hidden xl:block">
+            <div className="flex items-center gap-2 relative group hidden xl:flex">
               <input 
                 type="text" 
                 placeholder="구성원 이름 검색..." 
                 value={searchQuery}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSearchLogs(); }}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-64 pl-11 pr-5 py-3.5 bg-white border border-slate-200 rounded-2xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/50 outline-none transition-all font-bold text-slate-700 premium-shadow"
               />
               <Search className="w-5 h-5 text-slate-300 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-indigo-500 transition-colors" />
+              <button 
+                onClick={handleSearchLogs}
+                className="p-3.5 bg-white border-2 border-slate-100 text-indigo-600 rounded-2xl hover:border-indigo-500 hover:bg-indigo-50 transition-all shadow-sm flex items-center justify-center group/btn"
+                title="해당 인원 이력 검색"
+              >
+                <History className="w-6 h-6 group-hover/btn:rotate-12 transition-transform" />
+              </button>
             </div>
             <button 
               onClick={() => setShowEmployeeModal(true)}
@@ -384,6 +405,84 @@ export const OrganizationAdmin: React.FC = () => {
                   전체 이력 삭제
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* 이력 검색 결과 섹션 (Search Results View) */}
+        {logSearchResults && (
+          <div className="bg-white rounded-[2.5rem] shadow-2xl border-2 border-indigo-100 overflow-hidden animate-in slide-in-from-top-4 duration-500">
+            <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-indigo-50/30">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-indigo-600 text-white rounded-xl">
+                  <History className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black text-slate-800 tracking-tight">"{searchQuery}" 이력 검색 결과</h2>
+                  <p className="text-xs font-bold text-indigo-500 mt-0.5">총 {logSearchResults.length}건의 기록이 발견되었습니다.</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setLogSearchResults(null)}
+                className="p-3 hover:bg-white rounded-2xl text-slate-400 hover:text-slate-900 transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-slate-50/50">
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">일시</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">수행자</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">변경 분류</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">대상 객체</th>
+                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">상세 변경 내용</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {logSearchResults.map((log) => (
+                    <tr key={log.id} className="hover:bg-slate-50/80 transition-all">
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400">
+                           <Calendar className="w-3.5 h-3.5" />
+                           {new Date(log.timestamp).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-2">
+                           <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500">
+                              {log.performedBy.charAt(0)}
+                           </div>
+                           <span className="text-sm font-black text-slate-700">{log.performedBy}</span>
+                        </div>
+                      </td>
+                      <td className="px-8 py-6">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase border ${
+                          log.actionType.includes('CREATE') ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                          log.actionType.includes('DELETE') ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                          'bg-indigo-50 text-indigo-600 border-indigo-100'
+                        }`}>
+                          {log.actionType}
+                        </span>
+                      </td>
+                      <td className="px-8 py-6">
+                        <span className="text-sm font-bold text-slate-600">{log.targetName}</span>
+                      </td>
+                      <td className="px-8 py-6 text-right">
+                        <span className="text-xs font-medium text-slate-500 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">{log.details}</span>
+                      </td>
+                    </tr>
+                  ))}
+                  {logSearchResults.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="text-center py-24 text-slate-400 font-bold">
+                         해당 이름에 대한 조직 변경 이력을 찾을 수 없습니다.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
