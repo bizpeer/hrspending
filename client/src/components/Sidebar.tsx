@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, CalendarClock, Network, Settings, FileText, CheckSquare, PieChart, BookOpen, LogIn, LogOut, Users } from 'lucide-react';
+import { Home, CalendarClock, Network, Settings, FileText, CheckSquare, PieChart, BookOpen, LogIn, LogOut, Users, Banknote } from 'lucide-react';
 import { NotificationBell } from './NotificationBell';
 import { useAuthStore } from '../store/authStore';
 
@@ -67,6 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ userRole }) => {
 
         {isManagement && <NavItem to="/admin/approvals" icon={CheckSquare} label="결재/승인 관리함" />}
         {isHR && <NavItem to="/admin/organization" icon={Network} label="조직관리" />}
+        {isHR && <NavItem to="/admin/salary" icon={Banknote} label="급여 및 연봉 관리" colorClass="indigo" />}
         {isDirector && <NavItem to="/admin/finance-stats" icon={PieChart} label="지출결의 통합 조회" colorClass="emerald" />}
         {isDirector && <NavItem to="/admin/employees" icon={Users} label="인사관리" colorClass="indigo" />}
         {isDirector && <NavItem to="/admin/settings" icon={Settings} label="시스템 설정" colorClass="slate" />}

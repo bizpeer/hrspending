@@ -26,6 +26,7 @@ export interface UserData {
   usedLeave?: number; // 사용한 연차
   mustChangePassword?: boolean; // 최초 로그인 시 비밀번호 변경 여부
   status?: 'ACTIVE' | 'RESIGNED'; // 계정 상태
+  annualSalary?: number; // 연봉 (원)
 }
 
 interface AuthState {
