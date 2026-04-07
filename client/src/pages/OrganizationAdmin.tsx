@@ -156,11 +156,15 @@ export const OrganizationAdmin: React.FC = () => {
       if (!finalEmail.includes('@')) finalEmail = `${finalEmail}@internal.com`;
 
       const tempId = `temp_${Date.now()}`;
+      const selectedTeam = teams.find(t => t.id === newEmp.teamId);
+      const divisionId = selectedTeam?.divisionId || '';
+
       await setDoc(doc(db, 'UserProfile', tempId), {
         name: newEmp.name,
         email: finalEmail,
         role: 'EMPLOYEE',
         teamId: newEmp.teamId || '',
+        divisionId,
         teamHistory: [],
         joinDate: newEmp.joinDate,
         mustChangePassword: true,
@@ -189,7 +193,9 @@ export const OrganizationAdmin: React.FC = () => {
   const handleUpdateRole = async (emp: Employee, newTeamId: string, newRole: string) => {
     try {
       const userRef = doc(db, 'UserProfile', emp.uid);
-      const teamName = teams.find(t => t.id === newTeamId)?.name || '미배정';
+      const selectedTeam = teams.find(t => t.id === newTeamId);
+      const divisionId = selectedTeam?.divisionId || '';
+      const teamName = selectedTeam?.name || '미배정';
       
       const newHistory = [...(emp.teamHistory || []), {
         teamId: newTeamId, teamName, joinedAt: new Date().toISOString(), role: newRole
@@ -197,6 +203,7 @@ export const OrganizationAdmin: React.FC = () => {
 
       await updateDoc(userRef, {
         teamId: newTeamId,
+        divisionId,
         role: newRole,
         teamHistory: newHistory
       });

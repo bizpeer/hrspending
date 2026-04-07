@@ -128,6 +128,7 @@ export const ExpenseForm: React.FC = () => {
         userId: user?.uid || userData?.uid || 'UNKNOWN',
         userName: userData?.name || '가입대기(직원)',
         teamId: userData?.teamId || '',
+        divisionId: userData?.divisionId || '',
         title: title || '제목 없음',
         amount: Number(amount) || 0,
         date: date || new Date().toISOString().split('T')[0],

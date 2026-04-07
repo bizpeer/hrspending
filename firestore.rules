@@ -30,41 +30,55 @@ service cloud.firestore {
 
     // 유저/직원 프로필 관리 (UserProfile)
     match /UserProfile/{userId} {
-      // 본인의 프로필은 읽고 쓸 수 있으며, 관리자는 모든 프로필 관리 가능
-      allow read, write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      
-      // 마이그레이션을 위해 자신의 이메일이 등록된 임시 프로필 삭제 허용
-      allow delete: if isAuthenticated() && (resource.data.email == request.auth.token.email);
-      
-      // 로그인 시 이메일로 본인의 임시 프로필을 찾기 위해 리스트 조회 허용
-      allow list: if isAuthenticated();
-    }
-
-    // 감사 로그 (AuditLogs)
-    match /AuditLogs/{logId} {
-      allow read, write: if true;
-    }
-
-    // 공지사항 (announcements)
-    match /announcements/{announcementId} {
       allow read: if isAuthenticated();
-      allow write: if isManagement();
+      allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAuthenticated() && (resource.data.email == request.auth.token.email);
+    }
+
+    // 결재 승인 관련 유틸리티 함수
+    function isSubAdminOfDivision(divId) {
+      let path = /databases/$(database)/documents/UserProfile/$(request.auth.uid);
+      return isSubAdmin() && exists(path) && get(path).data.divisionId == divId;
+    }
+
+    function isValidApproval(currentStatus, nextStatus, targetDivId) {
+      let isFinalSet = nextStatus == 'APPROVED';
+      let isSubSet = nextStatus == 'SUB_APPROVED';
+      let isReject = nextStatus == 'REJECTED';
+      let isUndo = nextStatus == 'PENDING';
+
+      // 1. 마스터 관리자(ADMIN)는 모든 것이 가능 (상태에 상관없이 최종 승인/반려/되돌리기)
+      if (isAdmin()) { return true; }
+
+      // 2. 부관리자(SUB_ADMIN) 제약
+      if (isSubAdminOfDivision(targetDivId)) {
+        // 부관리자는 'PENDING' 상태에서만 'SUB_APPROVED' 또는 'REJECTED'로 변경 가능
+        return currentStatus == 'PENDING' && (isSubSet || isReject);
+      }
+
+      return false;
     }
 
     // 경비 신청 (expenses)
     match /expenses/{expenseId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isManagement());
-      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAuthenticated() && (
+        (resource.data.userId == request.auth.uid && resource.data.status == 'PENDING') || 
+        isValidApproval(resource.data.status, request.resource.data.status, resource.data.divisionId)
+      );
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid && resource.data.status == 'PENDING' || isAdmin());
     }
 
     // 휴가 신청 (leaves)
     match /leaves/{leaveId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && (resource.data.userId == request.auth.uid || isManagement());
-      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAuthenticated() && (
+        (resource.data.userId == request.auth.uid && resource.data.status == 'PENDING') || 
+        isValidApproval(resource.data.status, request.resource.data.status, resource.data.divisionId)
+      );
+      allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid && resource.data.status == 'PENDING' || isAdmin());
     }
 
     // 기본 규칙: 그 외 모든 컬렉션은 가급적 어드민만 접근 가능하게 방어

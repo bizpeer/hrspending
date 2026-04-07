@@ -16,7 +16,7 @@ interface LeaveRequest {
   startDate: string;
   endDate: string;
   reason: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: 'PENDING' | 'SUB_APPROVED' | 'APPROVED' | 'REJECTED';
   createdAt: string;
   requestDays: number;
   teamId?: string;
@@ -34,7 +34,7 @@ interface ExpenseRequest {
   date: string;
   category: string;
   description: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: 'PENDING' | 'SUB_APPROVED' | 'APPROVED' | 'REJECTED';
   createdAt: string;
   teamId?: string;
   divisionId?: string;
@@ -88,13 +88,22 @@ export const AdminApprovals: React.FC = () => {
       unsubDivs(); unsubTeams(); unsubUsers();
     };
   }, []);
-
-  const handleUpdateStatus = async (collectionName: string, id: string, newStatus: 'APPROVED' | 'REJECTED' | 'PENDING') => {
+  const handleUpdateStatus = async (collectionName: string, id: string, newStatus?: 'APPROVED' | 'REJECTED' | 'PENDING' | 'SUB_APPROVED') => {
     try {
-      const actionText = newStatus === 'APPROVED' ? '승인' : newStatus === 'REJECTED' ? '반려' : '결재대기(취소)';
-      if (!window.confirm(`이 요청을 ${actionText} 상태로 변경하시겠습니까?${newStatus === 'PENDING' ? '\n(연차 승인 건의 경우 소진된 연차가 자동으로 복구됩니다.)' : ''}`)) return;
+      const userRole = employees.find(e => e.uid === userData?.uid)?.role || userData?.role;
+      const targetStatus = newStatus || (userRole === 'SUB_ADMIN' ? 'SUB_APPROVED' : 'APPROVED');
       
-      await updateDoc(doc(db, collectionName, id), { status: newStatus });
+      const actionText = targetStatus === 'SUB_APPROVED' ? '1차 승인' : 
+                        targetStatus === 'APPROVED' ? '최종 승인' : 
+                        targetStatus === 'REJECTED' ? '반려' : '결재대기(취소)';
+
+      if (!window.confirm(`이 요청을 ${actionText} 상태로 변경하시겠습니까?${targetStatus === 'PENDING' ? '\n(연차 승인 건의 경우 소진된 연차가 자동으로 복구됩니다.)' : ''}`)) return;
+      
+      await updateDoc(doc(db, collectionName, id), { 
+        status: targetStatus,
+        updatedAt: new Date().toISOString(),
+        updatedBy: userData?.name || '시스템'
+      });
       alert(`${actionText} 처리가 완료되었습니다.`);
     } catch (err: any) {
       alert('상태 업데이트 실패: ' + err.message);
@@ -143,6 +152,7 @@ export const AdminApprovals: React.FC = () => {
   const getStatusStyle = (status: string) => {
     switch (status) {
       case 'APPROVED': return 'bg-emerald-50 text-emerald-600 border-emerald-100';
+      case 'SUB_APPROVED': return 'bg-indigo-50 text-indigo-600 border-indigo-100';
       case 'REJECTED': return 'bg-rose-50 text-rose-600 border-rose-100';
       default: return 'bg-amber-50 text-amber-600 border-amber-100';
     }
@@ -330,9 +340,12 @@ export const AdminApprovals: React.FC = () => {
                               <div className="flex justify-center">
                                  <span className={`flex items-center gap-2 px-4 py-2 rounded-full text-[11px] font-black border transition-all ${getStatusStyle(req.status)}`}>
                                     {req.status === 'APPROVED' ? <CheckCircle className="w-3.5 h-3.5" /> : 
+                                     req.status === 'SUB_APPROVED' ? <ShieldCheck className="w-3.5 h-3.5 text-indigo-500" /> :
                                      req.status === 'REJECTED' ? <XCircle className="w-3.5 h-3.5" /> : 
                                      <Clock className="w-3.5 h-3.5 animate-spin-slow" />}
-                                    {req.status === 'APPROVED' ? '최종승인' : req.status === 'REJECTED' ? '반려됨' : '결재대기'}
+                                    {req.status === 'APPROVED' ? '최종승인' : 
+                                     req.status === 'SUB_APPROVED' ? '1차 승인됨' :
+                                     req.status === 'REJECTED' ? '반려됨' : '결재대기'}
                                  </span>
                               </div>
                            </td>
@@ -345,14 +358,18 @@ export const AdminApprovals: React.FC = () => {
                                  >
                                     View Details
                                  </button>
-                                 {req.status === 'PENDING' ? (
+                                 {/* 신청 유형별/권한별 처리 버튼 */}
+                                 {((userData?.role === 'SUB_ADMIN' && req.status === 'PENDING') || 
+                                   (userData?.role === 'ADMIN' && (req.status === 'PENDING' || req.status === 'SUB_APPROVED'))) ? (
                                     <>
                                        <button 
-                                          onClick={() => handleUpdateStatus(activeTab === 'LEAVE' ? 'leaves' : 'expenses', req.id, 'APPROVED')}
-                                          className="p-3 bg-emerald-50 text-emerald-600 rounded-2xl hover:bg-emerald-600 hover:text-white hover:scale-110 active:scale-95 transition-all shadow-sm border border-emerald-100"
-                                          title="승인"
+                                          onClick={() => handleUpdateStatus(activeTab === 'LEAVE' ? 'leaves' : 'expenses', req.id, userData?.role === 'ADMIN' ? 'APPROVED' : 'SUB_APPROVED')}
+                                          className={`p-3 rounded-2xl transition-all shadow-sm border group/btn ${
+                                            userData?.role === 'ADMIN' ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-600 hover:text-white' : 'bg-indigo-50 text-indigo-600 border-indigo-100 hover:bg-indigo-600 hover:text-white'
+                                          }`}
+                                          title={userData?.role === 'ADMIN' ? "최종 승인" : "1차 승인"}
                                        >
-                                          <Check className="w-5 h-5 font-black" />
+                                          {userData?.role === 'ADMIN' ? <CheckCircle className="w-5 h-5" /> : <Check className="w-5 h-5" />}
                                        </button>
                                        <button 
                                           onClick={() => handleUpdateStatus(activeTab === 'LEAVE' ? 'leaves' : 'expenses', req.id, 'REJECTED')}
@@ -365,7 +382,7 @@ export const AdminApprovals: React.FC = () => {
                                  ) : (
                                     <div className="flex items-center justify-end gap-2.5">
                                        {/* 최고 관리자(ADMIN)만 되돌리기 가능 */}
-                                       {userData?.role === 'ADMIN' && (
+                                       {userData?.role === 'ADMIN' && (req.status === 'APPROVED' || req.status === 'REJECTED' || req.status === 'SUB_APPROVED') && (
                                           <button 
                                              onClick={() => handleUpdateStatus(activeTab === 'LEAVE' ? 'leaves' : 'expenses', req.id, 'PENDING')}
                                              className="flex items-center gap-2 px-3 py-2.5 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-600 hover:text-white transition-all shadow-sm border border-amber-100 group/undo"

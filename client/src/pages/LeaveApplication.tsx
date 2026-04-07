@@ -118,6 +118,7 @@ export const LeaveApplication: React.FC = () => {
         userId: user?.uid || userData?.uid || 'UNKNOWN',
         userName: userData?.name || '가입대기(직원)',
         teamId: userData?.teamId || '',
+        divisionId: userData?.divisionId || '',
         type: formData.type || 'annual',
         startDate: formData.startDate || '',
         endDate: formData.endDate || '',

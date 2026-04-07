@@ -19,6 +19,7 @@ export interface UserData {
   name: string;
   role: Role;
   teamId?: string;
+  divisionId?: string;
   teamHistory?: TeamHistory[];
   joinDate?: string; // 입사일 (YYYY-MM-DD)
   annualLeaveTotal?: number; // 총 발생 연차
@@ -99,7 +100,8 @@ export const useAuthStore = create<AuthState>((set) => ({
                 name: currentData?.name || '최고 관리자',
                 role: 'ADMIN',
                 teamHistory: currentData?.teamHistory || [],
-                teamId: currentData?.teamId || ''
+                teamId: currentData?.teamId || '',
+                divisionId: currentData?.divisionId || ''
               };
               await setDoc(doc(db, 'UserProfile', user.uid), currentData);
               console.log("[Auth] Master profile FORCED/RECOVERED to ADMIN.");
