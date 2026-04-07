@@ -100,8 +100,9 @@ const calculateNetPay = (emp: Partial<UserData> & { currentVal?: number }) => {
 };
 
 export const SalaryManagement: React.FC = () => {
-  const { user } = useAuthStore();
+  const { user, userData } = useAuthStore();
   const isMaster = user?.email?.toLowerCase().trim() === 'bizpeer@internal.com';
+  const isAdminOrMaster = isMaster || userData?.role === 'ADMIN';
   const [employees, setEmployees] = useState<UserData[]>([]);
   const [divisions, setDivisions] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
@@ -164,8 +165,8 @@ export const SalaryManagement: React.FC = () => {
     const data = editingData[uid];
     if (!data) return;
 
-    if (!isMaster) {
-      alert('최고 관리자만 수정 가능합니다.');
+    if (!isAdminOrMaster) {
+      alert('최고 관리자 또는 관리자(ADMIN)만 수정 가능합니다.');
       return;
     }
     setIsSaving(uid);

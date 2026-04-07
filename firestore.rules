@@ -37,15 +37,12 @@ service cloud.firestore {
     match /UserProfile/{userId} {
       allow read: if isAuthenticated();
       
-      allow create: if isAuthenticated() && (
-        isMaster() || 
-        (isAdmin() && !request.resource.data.keys().hasAny(['annualSalary', 'salaryType', 'isSeveranceIncluded', 'dependents', 'childrenUnder20', 'nonTaxable']))
-      );
+      allow create: if isAuthenticated() && (isMaster() || isAdmin());
 
       allow update: if isAuthenticated() && (
-        isMaster() ||
+        isMaster() || isAdmin() ||
         ( 
-          (request.auth.uid == userId || isAdmin()) && 
+          (request.auth.uid == userId) && 
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(['annualSalary', 'salaryType', 'isSeveranceIncluded', 'dependents', 'childrenUnder20', 'nonTaxable'])
         )
       );
