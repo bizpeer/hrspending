@@ -69,6 +69,12 @@ export const OrganizationAdmin: React.FC = () => {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
+  // 이력 조회 및 삭제용
+  const [selectedEmpForLogs, setSelectedEmpForLogs] = useState<Employee | null>(null);
+  const [showLogDeleteConfirm, setShowLogDeleteConfirm] = useState(false);
+  const [deleteLogsPassword, setDeleteLogsPassword] = useState('');
+  const [isProcessingLogs, setIsProcessingLogs] = useState(false);
+
   // Firestore 데이터 실시간 구독
   useEffect(() => {
     setLoading(true);
@@ -94,7 +100,7 @@ export const OrganizationAdmin: React.FC = () => {
 
     const unsubLogs = onSnapshot(collection(db, 'AuditLogs'), (snap) => {
       const logs = snap.docs.map(d => ({ id: d.id, ...d.data() } as AuditLog));
-      setAuditLogs(logs.sort((a, b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 50));
+      setAuditLogs(logs.sort((a, b) => b.timestamp.localeCompare(a.timestamp)));
     }, handleError);
 
     const timeoutId = setTimeout(() => {
@@ -273,6 +279,37 @@ export const OrganizationAdmin: React.FC = () => {
     }
   };
 
+  const handleDeleteAllLogs = async () => {
+    if (!deleteLogsPassword) return;
+    setIsProcessingLogs(true);
+    try {
+      const { auth } = await import('../firebase');
+      const { signInWithEmailAndPassword } = await import('firebase/auth');
+      
+      // 1. 보안 확인
+      try {
+        await signInWithEmailAndPassword(auth, userData?.email || '', deleteLogsPassword);
+      } catch (err) {
+        throw new Error('비밀번호가 일치하지 않습니다.');
+      }
+
+      // 2. 일괄 삭제
+      const { writeBatch, getDocs, collection } = await import('firebase/firestore');
+      const batch = writeBatch(db);
+      const snap = await getDocs(collection(db, 'AuditLogs'));
+      snap.forEach(d => batch.delete(d.ref));
+      
+      await batch.commit();
+      alert('모든 조직 변경 이력이 삭제되었습니다.');
+      setShowLogDeleteConfirm(false);
+      setDeleteLogsPassword('');
+    } catch (err) {
+      alert('삭제 중 오류: ' + (err as Error).message);
+    } finally {
+      setIsProcessingLogs(false);
+    }
+  };
+
   const getEmployeesInTeam = (teamId: string) => {
     return employees.filter(emp => emp.teamId === teamId);
   }
@@ -338,9 +375,15 @@ export const OrganizationAdmin: React.FC = () => {
                   <p className="text-slate-400 text-sm font-medium mt-1">부관리자 임명 및 시스템 전역 보안 설정을 관리할 수 있습니다.</p>
                 </div>
               </div>
-              <button className="bg-white text-slate-900 px-8 py-4 rounded-2xl shadow-xl font-black transition-all hover:bg-indigo-50 hover:scale-105 active:scale-95 text-sm">
-                관리자 설정 이동
-              </button>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setShowLogDeleteConfirm(true)}
+                  className="bg-rose-500/10 text-rose-400 px-6 py-3.5 rounded-2xl border border-rose-500/20 font-black hover:bg-rose-500 hover:text-white transition-all text-xs flex items-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  전체 이력 삭제
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -503,6 +546,11 @@ export const OrganizationAdmin: React.FC = () => {
                                      className="w-3.5 h-3.5 text-slate-200 hover:text-rose-500 transition-colors" 
                                      onClick={(e) => { e.stopPropagation(); handleDeleteEmployee(emp.uid, emp.name); }}
                                    />
+                                   <div className="w-px h-3 bg-slate-100 mx-1"></div>
+                                   <History 
+                                      className="w-3.5 h-3.5 text-slate-200 hover:text-indigo-500 transition-colors"
+                                      onClick={(e) => { e.stopPropagation(); setSelectedEmpForLogs(emp); }}
+                                   />
                                  </div>
                                ))}
                              </div>
@@ -586,6 +634,11 @@ export const OrganizationAdmin: React.FC = () => {
                                       className="w-3.5 h-3.5 text-slate-200 hover:text-rose-500 transition-colors" 
                                       onClick={(e) => { e.stopPropagation(); handleDeleteEmployee(emp.uid, emp.name); }}
                                     />
+                                    <div className="w-px h-3 bg-slate-100 mx-1"></div>
+                                    <History 
+                                       className="w-3.5 h-3.5 text-slate-200 hover:text-indigo-500 transition-colors"
+                                       onClick={(e) => { e.stopPropagation(); setSelectedEmpForLogs(emp); }}
+                                    />
                                   </div>
                                 ))}
                                 {getEmployeesInTeam(team.id).length === 0 && (
@@ -621,80 +674,10 @@ export const OrganizationAdmin: React.FC = () => {
           </div>
         </div>
 
-        {/* 감사 로그 (Audit Logs) */}
-        <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden">
-          <div className="p-8 border-b border-slate-50 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-slate-900 text-white rounded-xl">
-                <History className="w-5 h-5" />
-              </div>
-              <h2 className="text-xl font-black text-slate-800 tracking-tight">전사 조직 변경 이력</h2>
-            </div>
-            <span className="text-[10px] font-black text-slate-400 tracking-widest uppercase bg-slate-50 px-4 py-2 rounded-full">
-              Live Feed
-            </span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-slate-50/50">
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">일시</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">수행자</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">변경 분류</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">대상 객체</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">상세 변경 내용</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {auditLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-50/80 transition-all">
-                    <td className="px-8 py-6">
-                      <div className="flex items-center gap-2 text-[11px] font-bold text-slate-400">
-                         <Calendar className="w-3.5 h-3.5" />
-                         {new Date(log.timestamp).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </td>
-                    <td className="px-8 py-6">
-                      <div className="flex items-center gap-2">
-                         <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500">
-                            {log.performedBy.charAt(0)}
-                         </div>
-                         <span className="text-sm font-black text-slate-700">{log.performedBy}</span>
-                      </div>
-                    </td>
-                    <td className="px-8 py-6">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest uppercase border ${
-                        log.actionType.includes('CREATE') ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
-                        log.actionType.includes('DELETE') ? 'bg-rose-50 text-rose-600 border-rose-100' :
-                        'bg-indigo-50 text-indigo-600 border-indigo-100'
-                      }`}>
-                        {log.actionType}
-                      </span>
-                    </td>
-                    <td className="px-8 py-6">
-                      <span className="text-sm font-bold text-slate-600">{log.targetName}</span>
-                    </td>
-                    <td className="px-8 py-6 text-right">
-                      <span className="text-xs font-medium text-slate-500 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">{log.details}</span>
-                    </td>
-                  </tr>
-                ))}
-                {auditLogs.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="text-center py-24">
-                       <History className="w-12 h-12 text-slate-100 mx-auto mb-4" />
-                       <p className="text-slate-400 font-bold tracking-tight">표시할 변경 이력이 없습니다.</p>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
 
       {/* 모달 배경 필터 (Shared) */}
-      {(showDivisionModal || showTeamModal || showEmployeeModal || showEditModal) && (
+      {(showDivisionModal || showTeamModal || showEmployeeModal || showEditModal || selectedEmpForLogs || showLogDeleteConfirm) && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] transition-opacity duration-500" />
       )}
 
@@ -891,6 +874,113 @@ export const OrganizationAdmin: React.FC = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 개별 사원 이력 조회 모달 */}
+      {selectedEmpForLogs && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl border border-slate-100 overflow-hidden animate-modal-pop">
+            <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-slate-900 text-white">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-black bg-indigo-500 text-white px-3 py-1 rounded-full uppercase tracking-widest leading-none">Activity Log</span>
+                </div>
+                <h2 className="text-2xl font-black tracking-tight">{selectedEmpForLogs.name}님의 조직 변경 이력</h2>
+              </div>
+              <button onClick={() => setSelectedEmpForLogs(null)} className="p-3 bg-white/10 text-white/60 rounded-2xl hover:text-white transition-all">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-8 max-h-[60vh] overflow-y-auto premium-scrollbar bg-white">
+              <div className="space-y-6">
+                {auditLogs.filter(l => l.targetId === selectedEmpForLogs.uid).length > 0 ? (
+                  auditLogs.filter(l => l.targetId === selectedEmpForLogs.uid).map((log, idx, arr) => (
+                    <div key={log.id} className="relative pl-10">
+                      {idx !== arr.length - 1 && <div className="absolute left-[19px] top-10 bottom-[-24px] w-[2px] bg-slate-100"></div>}
+                      <div className={`absolute left-0 top-1 w-10 h-10 rounded-2xl flex items-center justify-center text-white shadow-md ${
+                        log.actionType.includes('CREATE') ? 'bg-emerald-500' :
+                        log.actionType.includes('DELETE') ? 'bg-rose-500' : 'bg-indigo-500'
+                      }`}>
+                         <History className="w-4 h-4" />
+                      </div>
+                      <div className="bg-slate-50/50 p-6 rounded-[1.5rem] border border-slate-100 flex flex-col gap-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                            {new Date(log.timestamp).toLocaleString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          <span className="text-[10px] font-black text-indigo-500 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
+                            By {log.performedBy}
+                          </span>
+                        </div>
+                        <div className="text-sm font-black text-slate-800 tracking-tight">{log.details}</div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-20 text-center space-y-4">
+                    <History className="w-12 h-12 text-slate-100 mx-auto" />
+                    <p className="text-slate-400 font-bold">변경 이력이 존재하지 않습니다.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="p-6 bg-slate-50 border-t border-slate-100 text-center">
+               <button onClick={() => setSelectedEmpForLogs(null)} className="px-10 py-4 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-xl hover:bg-slate-800 transition-all">
+                 닫기
+               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 전체 이력 삭제 확인 모달 */}
+      {showLogDeleteConfirm && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-md border border-slate-100 overflow-hidden text-center p-12 space-y-8 animate-modal-pop">
+             <div className="w-20 h-20 bg-rose-50 rounded-[2rem] flex items-center justify-center text-rose-500 mx-auto border border-rose-100">
+                <ShieldCheck className="w-10 h-10" />
+             </div>
+             
+             <div className="space-y-2">
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight">이력 데이터 영구 삭제</h3>
+                <p className="text-slate-500 font-medium text-sm leading-relaxed">
+                  전사 <span className="text-rose-600 font-black">조직 변경 이력</span>이 모두 삭제되며,<br />
+                  이 작업은 <span className="underline decoration-rose-200 decoration-4">복구할 수 없습니다.</span>
+                </p>
+             </div>
+
+             <div className="space-y-4">
+                <div className="relative">
+                  <ShieldCheck className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input 
+                    type="password"
+                    placeholder="최고관리자 비밀번호를 입력하세요"
+                    value={deleteLogsPassword}
+                    onChange={(e) => setDeleteLogsPassword(e.target.value)}
+                    className="w-full pl-14 pr-6 py-5 bg-slate-50 rounded-2xl border-2 border-slate-100 outline-none focus:border-rose-500 transition-all font-bold text-lg"
+                  />
+                </div>
+                
+                <div className="flex gap-4">
+                   <button 
+                    onClick={() => { setShowLogDeleteConfirm(false); setDeleteLogsPassword(''); }}
+                    className="flex-1 py-5 bg-slate-100 text-slate-500 font-black rounded-2xl hover:bg-slate-200 transition-all"
+                   >
+                     취소
+                   </button>
+                   <button 
+                    onClick={handleDeleteAllLogs}
+                    disabled={!deleteLogsPassword || isProcessingLogs}
+                    className="flex-2 px-10 py-5 bg-rose-600 text-white font-black rounded-2xl shadow-xl shadow-rose-100 hover:bg-rose-700 transition-all disabled:opacity-30 flex items-center justify-center gap-2"
+                   >
+                     {isProcessingLogs ? <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin"></div> : <Trash2 className="w-5 h-5" />}
+                     전체 삭제 승인
+                   </button>
+                </div>
+             </div>
           </div>
         </div>
       )}
