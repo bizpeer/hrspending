@@ -45,7 +45,7 @@ service cloud.firestore {
         isMaster() || isAdmin() ||
         ( 
           (request.auth.uid == userId) && 
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['annualSalary', 'salaryType', 'isSeveranceIncluded', 'dependents', 'childrenUnder20', 'nonTaxable'])
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['annualSalary', 'salaryType', 'isSeveranceIncluded', 'dependents', 'childrenUnder20', 'nonTaxable', 'rrn'])
         )
       );
 
