@@ -93,8 +93,11 @@ export const AttendanceDashboard: React.FC = () => {
     }
 
     // KST 기준으로 오늘 날짜 (YYYY-MM-DD) 계산
-    const today = new Intl.DateTimeFormat('fr-CA', { timeZone: 'Asia/Seoul' }).format(new Date());
-    console.log("[Attendance] Fetching records for date:", today);
+    // 에러 방지를 위해 시간 부분을 00:00:00으로 설정한 비교용 문자열 생성
+    const now = new Date();
+    const today = new Intl.DateTimeFormat('fr-CA', { timeZone: 'Asia/Seoul' }).format(now);
+    
+    console.log("[Attendance] Fetching today's records for:", today);
     const q = query(
       collection(db, 'attendance'),
       where('userId', '==', user.uid),
@@ -103,21 +106,17 @@ export const AttendanceDashboard: React.FC = () => {
 
     const unsubscribe = onSnapshot(q, (snap) => {
       const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
-      // 클라이언트 사이드 정렬 (인덱스 에러 방지)
+      // 클라이언트 사이드 정렬
       const sorted = [...docs].sort((a, b) => b.timestamp.localeCompare(a.timestamp));
       setRecords(sorted.slice(0, 10));
       setLoading(false);
     }, (err) => {
       console.error("Attendance Subscribe Error:", err);
-      // 인덱스가 없는 경우 등 에러 발생 시 로딩 종료
       setLoading(false);
-      if (err.code === 'permission-denied') {
-        console.error("권한이 없습니다. Firebase Rules를 확인하세요.");
-      }
     });
 
     return () => unsubscribe();
-  }, [user?.uid]);
+  }, [user?.uid, userData]); // userData를 추가하여 권한 변경 시 재로드 유도
 
   const handleAttendance = async (type: 'IN' | 'OUT') => {
     console.log(`[Attendance] Attempting ${type} check...`);
@@ -185,12 +184,12 @@ export const AttendanceDashboard: React.FC = () => {
   const remainingLeave = totalLeave - usedLeave;
 
   return (
-    <div className="flex-1 p-4 md:p-10 bg-slate-50 min-h-screen">
+    <div className="flex-1 p-2 md:p-6 bg-slate-50 min-h-screen">
       <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col xl:flex-row xl:items-end justify-between mb-10 gap-6">
-          <div className="flex flex-col md:flex-row md:items-center gap-8">
+        <div className="flex flex-col xl:flex-row xl:items-end justify-between mb-6 gap-4">
+          <div className="flex flex-col md:flex-row md:items-center gap-6">
             <div>
-              <div className="flex items-center gap-3 mb-2">
+              <div className="flex items-center gap-3 mb-1">
                 <div className="p-2 bg-indigo-600 rounded-lg text-white">
                   <CalendarIcon className="w-5 h-5" />
                 </div>
@@ -274,22 +273,13 @@ export const AttendanceDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden">
-               <div className="absolute bottom-0 right-0 w-24 h-24 bg-white/5 rounded-full -mb-12 -mr-12"></div>
-               <div className="flex items-center gap-3 mb-4">
-                 <MapPin className="w-5 h-5 text-indigo-400" />
-                 <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Security Access</span>
-               </div>
-               <p className="text-sm leading-relaxed text-slate-300">
-                 현재 <span className="text-indigo-300 font-bold">본사 오피스망</span>에 접속 중입니다. 출퇴근 기록이 가능합니다.
-               </p>
-            </div>
+            {/* Security Access 박스 제거됨 */}
           </div>
 
           {/* Timeline / logs */}
           <div className="lg:col-span-8">
-            <div className="bg-white rounded-[2.5rem] shadow-xl p-8 border border-slate-100 h-full">
-              <div className="flex items-center justify-between mb-8">
+            <div className="bg-white rounded-[2.5rem] shadow-xl p-5 border border-slate-100 h-full">
+              <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3">
                   <Clock className="w-7 h-7 text-indigo-500" />
                   오늘의 타임라인
@@ -298,9 +288,9 @@ export const AttendanceDashboard: React.FC = () => {
               </div>
 
               {loading ? (
-                <div className="flex flex-col items-center justify-center py-24 text-slate-300">
-                  <Loader2 className="w-12 h-12 animate-spin mb-4" />
-                  <p className="font-bold tracking-tight">데이터를 불러오는 중...</p>
+                <div className="flex flex-col items-center justify-center py-10 text-slate-300">
+                  <Loader2 className="w-10 h-10 animate-spin mb-3" />
+                  <p className="font-bold tracking-tight text-sm">데이터를 불러오는 중...</p>
                 </div>
               ) : records.length > 0 ? (
                 <div className="space-y-6">
@@ -351,11 +341,11 @@ export const AttendanceDashboard: React.FC = () => {
             </div>
 
             {/* [NEW] 월별 근태 캘린더 (Red Box 영역) */}
-            <div className="mt-8 bg-white rounded-[2.5rem] shadow-xl p-8 border border-slate-100">
-              <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+            <div className="mt-4 bg-white rounded-[2.5rem] shadow-xl p-5 border border-slate-100">
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
                 <div>
-                  <h2 className="text-2xl font-black text-slate-800 flex items-center gap-3">
-                    <CalendarIcon className="w-7 h-7 text-indigo-500" />
+                  <h2 className="text-xl font-black text-slate-800 flex items-center gap-3">
+                    <CalendarIcon className="w-6 h-6 text-indigo-500" />
                     월별 근태 현황
                   </h2>
                   <p className="text-xs font-bold text-slate-400 mt-1 uppercase tracking-widest">
