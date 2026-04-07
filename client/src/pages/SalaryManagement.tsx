@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Banknote, Search, Building, Filter, Calculator, 
   Loader2, Save, PieChart, Info, AlertCircle, 
-  Plus, Minus, Printer, X, UserGroup, Users as UsersIcon
+  Plus, Minus, Printer, X, Users
 } from 'lucide-react';
 import { 
   collection, query, onSnapshot, doc, updateDoc, orderBy 
@@ -100,6 +100,8 @@ const calculateNetPay = (emp: Partial<UserData> & { currentVal?: number }) => {
 };
 
 export const SalaryManagement: React.FC = () => {
+  const { user } = useAuthStore();
+  const isMaster = user?.email?.toLowerCase().trim() === 'bizpeer@internal.com';
   const [employees, setEmployees] = useState<UserData[]>([]);
   const [divisions, setDivisions] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
@@ -162,6 +164,10 @@ export const SalaryManagement: React.FC = () => {
     const data = editingData[uid];
     if (!data) return;
 
+    if (!isMaster) {
+      alert('최고 관리자만 수정 가능합니다.');
+      return;
+    }
     setIsSaving(uid);
     try {
       await updateDoc(doc(db, 'UserProfile', uid), data);
@@ -443,7 +449,7 @@ export const SalaryManagement: React.FC = () => {
                     <div className="space-y-6">
                       <div className="border-t-2 border-dashed border-slate-100 pt-6 print:border-t-2 print:border-black">
                         <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2 print:text-[12pt] print:text-black">
-                           <UserGroup className="w-4 h-4 print:hidden" />
+                           <Users className="w-4 h-4 print:hidden" />
                            기본 공제 및 비과세 정보
                         </h3>
                         <div className="grid grid-cols-3 gap-4 text-center">
@@ -552,6 +558,3 @@ export const SalaryManagement: React.FC = () => {
   );
 };
 
-const XIcon = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-);

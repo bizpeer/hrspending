@@ -41,7 +41,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <>{children}</>;
   }
 
-  if (requireMasterAdmin && userData.role !== 'ADMIN') {
+  if (requireMasterAdmin && !isMaster) {
     return <Navigate to="/dashboard" replace />;
   }
 

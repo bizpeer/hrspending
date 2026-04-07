@@ -28,11 +28,29 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    // 마스터 계정 확인 (최고 관리자)
+    function isMaster() {
+      return request.auth.token.email == 'bizpeer@internal.com';
+    }
+
     // 유저/직원 프로필 관리 (UserProfile)
     match /UserProfile/{userId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow delete: if isAuthenticated() && (resource.data.email == request.auth.token.email);
+      
+      allow create: if isAuthenticated() && (
+        isMaster() || 
+        (isAdmin() && !request.resource.data.keys().hasAny(['annualSalary', 'salaryType', 'isSeveranceIncluded', 'dependents', 'childrenUnder20', 'nonTaxable']))
+      );
+
+      allow update: if isAuthenticated() && (
+        isMaster() ||
+        ( 
+          (request.auth.uid == userId || isAdmin()) && 
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['annualSalary', 'salaryType', 'isSeveranceIncluded', 'dependents', 'childrenUnder20', 'nonTaxable'])
+        )
+      );
+
+      allow delete: if isAuthenticated() && (resource.data.email == request.auth.token.email || isAdmin() || isMaster());
     }
 
     // 결재 승인 관련 유틸리티 함수
