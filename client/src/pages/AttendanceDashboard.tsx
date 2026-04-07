@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, LogIn, LogOut, Loader2, Calendar as CalendarIcon, MapPin, CheckCircle2, History } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
-import { collection, query, where, orderBy, onSnapshot, addDoc, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { format } from 'date-fns';
 import { calculateLeaveEntitlement } from '../utils/leaveCalculator';
