@@ -3,7 +3,7 @@ import {
   PieChart, DollarSign, Calendar, Filter, Printer, ChevronRight, 
   TrendingUp, Download, Search, FileText, Loader2 
 } from 'lucide-react';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { format, addMonths, startOfMonth, parseISO } from 'date-fns';
 
@@ -34,8 +34,7 @@ export const ExpenseAdminDashboard: React.FC = () => {
     setLoading(true);
     const q = query(
       collection(db, 'expenses'),
-      where('status', '==', 'APPROVED'),
-      orderBy('date', 'desc')
+      where('status', '==', 'APPROVED')
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -43,7 +42,11 @@ export const ExpenseAdminDashboard: React.FC = () => {
         id: doc.id,
         ...doc.data()
       })) as Expense[];
-      setExpenses(expenseData);
+      
+      // 클라이언트 사이드 정렬 (인덱스 에러 방지)
+      const sortedData = expenseData.sort((a, b) => b.date.localeCompare(a.date));
+      
+      setExpenses(sortedData);
       setLoading(false);
     }, (error) => {
       console.error("Firestore Error:", error);
@@ -73,6 +76,37 @@ export const ExpenseAdminDashboard: React.FC = () => {
   });
 
   const totalAmount = filteredExpenses.reduce((sum, curr) => sum + Number(curr.amount || 0), 0);
+
+  // 엑셀 다운로드 기능 (CSV 기반)
+  const handleExportExcel = () => {
+    if (filteredExpenses.length === 0) {
+      alert("다운로드할 데이터가 없습니다.");
+      return;
+    }
+
+    // CSV 헤더 및 데이터 구성
+    const headers = ["일자", "분류", "지출항목", "신청자", "금액(원)"];
+    const csvContent = [
+      headers.join(","),
+      ...filteredExpenses.map(e => [
+        e.date,
+        e.category,
+        `"${e.title.replace(/"/g, '""')}"`,
+        e.userName || e.applicant,
+        e.amount
+      ].join(","))
+    ].join("\n");
+
+    // 한글 깨짐 방지를 위한 BOM(Byte Order Mark) 추가
+    const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `지출결의내역_${format(new Date(), 'yyyyMMdd')}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   if (loading) {
     return (
@@ -109,7 +143,10 @@ export const ExpenseAdminDashboard: React.FC = () => {
                 <Printer className="w-5 h-5 text-indigo-500" />
                 <span>PDF 리포트 출력</span>
              </button>
-             <button className="flex items-center gap-2.5 px-6 py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all active:scale-95 shrink-0">
+             <button 
+               onClick={handleExportExcel}
+               className="flex items-center gap-2.5 px-6 py-4 bg-emerald-600 text-white font-black rounded-2xl shadow-xl shadow-emerald-100 hover:bg-emerald-700 transition-all active:scale-95 shrink-0"
+             >
                 <Download className="w-5 h-5" />
                 <span className="hidden sm:inline">Excel 다운로드</span>
              </button>
@@ -209,7 +246,7 @@ export const ExpenseAdminDashboard: React.FC = () => {
                 {filteredExpenses.length > 0 ? (
                   filteredExpenses.map((expense) => (
                     <tr key={expense.id} className="hover:bg-slate-50/80 transition-all group">
-                      <td className="px-8 py-6">
+                      <td className="px-8 py-3">
                         <div className="space-y-1">
                            <div className="flex items-center gap-2 text-xs font-black text-slate-400">
                               <Calendar className="w-3.5 h-3.5" />
@@ -220,12 +257,12 @@ export const ExpenseAdminDashboard: React.FC = () => {
                            </span>
                         </div>
                       </td>
-                      <td className="px-8 py-6">
+                      <td className="px-8 py-3">
                          <span className="text-sm font-black text-slate-800 group-hover:text-emerald-600 transition-colors cursor-default">
                            {expense.title}
                          </span>
                       </td>
-                      <td className="px-8 py-6">
+                      <td className="px-8 py-3">
                         <div className="flex items-center gap-3">
                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200 text-[10px] font-black text-slate-400">
                               {expense.userName?.charAt(0) || expense.applicant?.charAt(0) || 'U'}
@@ -233,12 +270,12 @@ export const ExpenseAdminDashboard: React.FC = () => {
                            <span className="text-xs font-black text-slate-700">{expense.userName || expense.applicant}</span>
                         </div>
                       </td>
-                      <td className="px-8 py-6 text-right">
+                      <td className="px-8 py-3 text-right">
                         <span className="text-sm font-black text-slate-900 group-hover:scale-110 inline-block transition-transform">
                           {Number(expense.amount || 0).toLocaleString()} <span className="text-[10px] text-slate-400 ml-0.5">원</span>
                         </span>
                       </td>
-                      <td className="px-8 py-6 text-right print:hidden">
+                      <td className="px-8 py-3 text-right print:hidden">
                         <button className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all">
                            <ChevronRight className="w-5 h-5" />
                         </button>
