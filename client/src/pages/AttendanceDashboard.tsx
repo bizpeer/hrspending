@@ -350,9 +350,9 @@ export const AttendanceDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* 월별 근태 캘린더 (기존 크기 유지) */}
-        <div className="mt-4 bg-white rounded-[2.5rem] shadow-xl p-5 border border-slate-100">
-          <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
+        {/* 월별 근태 캘린더 (컴팩트 최적화) */}
+        <div className="mt-4 bg-white rounded-2xl shadow-xl p-3 border border-slate-100">
+          <div className="flex flex-col md:flex-row md:items-center justify-between mb-3 gap-3">
             <div>
               <h2 className="text-xl font-black text-slate-800 flex items-center gap-3">
                 <CalendarIcon className="w-6 h-6 text-indigo-500" />
@@ -404,8 +404,8 @@ export const AttendanceDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="mb-6">
-            <div className="grid grid-cols-7 mb-2 border-b border-slate-50 pb-2">
+          <div className="mb-3">
+            <div className="grid grid-cols-7 mb-1 border-b border-slate-50 pb-1">
               {['일', '월', '화', '수', '목', '금', '토'].map((day) => (
                 <div key={day} className="text-center text-[10px] font-black text-slate-400 uppercase tracking-tighter">
                   {day}
@@ -430,7 +430,7 @@ export const AttendanceDashboard: React.FC = () => {
                 return (
                   <div 
                     key={day.toString()}
-                    className={`aspect-square relative flex items-center justify-center rounded-2xl transition-all border ${
+                    className={`aspect-square relative flex items-center justify-center rounded-lg transition-all border ${
                       isTodayLocal ? 'border-indigo-200 bg-indigo-50' : 'border-transparent hover:bg-slate-50'
                     } ${!isCurrentMonth ? 'opacity-20' : ''}`}
                   >
@@ -441,12 +441,12 @@ export const AttendanceDashboard: React.FC = () => {
                     </span>
                     
                     {hasCheckIn && (
-                      <div className="absolute top-1.5 right-1.5">
+                      <div className="absolute top-1 right-1">
                         <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full shadow-sm shadow-indigo-200"></div>
                       </div>
                     )}
                     {hasCheckOut && (
-                      <div className="absolute bottom-1.5 right-1.5">
+                      <div className="absolute bottom-1 right-1">
                         <div className="w-1.5 h-1.5 bg-rose-400 rounded-full shadow-sm shadow-rose-100"></div>
                       </div>
                     )}
@@ -456,7 +456,7 @@ export const AttendanceDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-50 rounded-3xl border border-slate-100">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-2 bg-slate-50 rounded-2xl border border-slate-100">
             <div className="text-center md:border-r border-slate-200 last:border-0 px-2">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">근무일수</p>
               <p className="text-lg font-black text-slate-700">
