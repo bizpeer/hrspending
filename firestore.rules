@@ -104,6 +104,12 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // 시스템 설정 (config) - 모든 직원이 도메인 정보를 읽을 수 있어야 함
+    match /config/{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin() || isMaster();
+    }
+
     // 기본 규칙: 그 외 모든 컬렉션은 가급적 어드민만 접근 가능하게 방어
     match /{document=**} {
       allow read, write: if isAdmin();
