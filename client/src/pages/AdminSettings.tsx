@@ -111,7 +111,7 @@ export const AdminSettings: React.FC = () => {
       await setDoc(doc(db, 'config', 'system'), {
         defaultDomain: tempDomain.replace('@', ''), // @ 기호 제거
         updatedAt: new Date().toISOString(),
-        updatedBy: auth.currentUser.uid
+        updatedBy: auth.currentUser?.uid || 'unknown'
       });
 
       // 3. 스토어 갱신
