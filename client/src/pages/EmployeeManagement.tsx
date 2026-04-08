@@ -9,7 +9,7 @@ import {
   getDocs, orderBy, writeBatch 
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useAuthStore } from '../store/authStore';
 
 interface Employee {
@@ -191,11 +191,13 @@ export const EmployeeManagement: React.FC = () => {
     }
   };
 
-  const handleResetPasswordLink = async (emp: Employee) => {
-    if (!window.confirm(`${emp.name}님에게 비밀번호 재설정 이메일을 발송하시겠습니까?`)) return;
+  const handleInitializePassword = async (emp: Employee) => {
+    if (!window.confirm(`${emp.name}님의 비밀번호를 '123456'으로 초기화하시겠습니까?`)) return;
     try {
-      await sendPasswordResetEmail(auth, emp.email);
-      alert('재설정 이메일이 발급되었습니다.');
+      await updateDoc(doc(db, 'UserProfile', emp.uid), { 
+        mustChangePassword: true 
+      });
+      alert(`비밀번호 초기화 : 재설정 비밀번호는 '123456'입니다.`);
     } catch (e) {
       alert('오류 발생: ' + (e as Error).message);
     }
@@ -324,9 +326,9 @@ export const EmployeeManagement: React.FC = () => {
                       <td className="px-8 py-6">
                         <div className="flex items-center justify-end gap-2 text-slate-300">
                           <button 
-                            onClick={() => handleResetPasswordLink(emp)}
+                            onClick={() => handleInitializePassword(emp)}
                             className="p-2.5 hover:bg-indigo-50 hover:text-indigo-600 rounded-xl transition-all" 
-                            title="비밀번호 재설정 이메일"
+                            title="비밀번호 초기화 (123456)"
                           >
                             <Key className="w-4 h-4" />
                           </button>
