@@ -19,7 +19,7 @@ interface AttendanceRecord {
 
 export const AttendanceDashboard: React.FC = () => {
   const { 
-    user, userData, setLoginModalOpen, getDisplayEmail, systemDomain,
+    user, userData, setLoginModalOpen,
     openPasswordChange 
   } = useAuthStore();
   const { fetchSystemDomain } = useAuthStore();
@@ -239,7 +239,6 @@ export const AttendanceDashboard: React.FC = () => {
                   {userData ? (
                     <>
                       <span className="text-[11px] font-black text-indigo-600">{userData.name}</span>
-                      <span className="text-[9px] text-slate-400 font-bold" title={`Current Domain: ${systemDomain}`}>({getDisplayEmail(userData.email)})</span>
                     </>
                   ) : (
                     <div className="flex items-center gap-1.5 py-1">
