@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Lock, AlertCircle, CheckCircle2, ShieldCheck, Key, Globe, Layout, Fingerprint, ShieldAlert } from 'lucide-react';
+import { Settings, Lock, AlertCircle, CheckCircle2, ShieldCheck, Key, Globe, Layout, Fingerprint, ShieldAlert, Users } from 'lucide-react';
 import { auth, db } from '../firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, collection, getDocs, writeBatch } from 'firebase/firestore';
 import { updatePassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { useAuthStore } from '../store/authStore';
 
@@ -99,8 +99,52 @@ export const AdminSettings: React.FC = () => {
       
       setMessage({ type: 'success', text: `시스템 기본 도메인이 @${tempDomain}으로 변경되었습니다.` });
       setVerifyPassword('');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSyncAllUsersDomain = async () => {
+    if (!window.confirm("모든 기존 사용자의 프로필 도메인을 현재 설정된 도메인으로 동기화하시겠습니까?")) return;
+    if (!verifyPassword) {
+      setMessage({ type: 'error', text: '동기화를 위해 관리자 비밀번호를 입력해주세요.' });
+      return;
+    }
+
+    setLoading(true);
+    setMessage({ type: '', text: '' });
+    try {
+      if (!auth.currentUser?.email) throw new Error("인증 정보가 없습니다.");
+      
+      // 1. 비밀번호 재검증
+      await signInWithEmailAndPassword(auth, auth.currentUser.email, verifyPassword);
+
+      // 2. 전체 사용자 프로필 조회 및 일괄 업데이트 (Batch)
+      const querySnapshot = await getDocs(collection(db, 'UserProfile'));
+      const batch = writeBatch(db);
+      let count = 0;
+
+      querySnapshot.forEach((userDoc) => {
+        const data = userDoc.data();
+        if (data.email && data.email.includes('@')) {
+          const [id] = data.email.split('@');
+          const newEmail = `${id}@${tempDomain}`;
+          if (data.email !== newEmail) {
+            batch.update(userDoc.ref, { email: newEmail });
+            count++;
+          }
+        }
+      });
+
+      if (count > 0) {
+        await batch.commit();
+        setMessage({ type: 'success', text: `${count}명의 사용자 도메인 동기화가 완료되었습니다.` });
+      } else {
+        setMessage({ type: 'success', text: '이미 모든 사용자가 최신 도메인을 사용 중입니다.' });
+      }
+      setVerifyPassword('');
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      setMessage({ type: 'error', text: '동기화 중 오류: ' + err.message });
     } finally {
       setLoading(false);
     }
@@ -195,7 +239,7 @@ export const AdminSettings: React.FC = () => {
                             <p className="text-[11px] font-black text-indigo-900">도메인 변경 시 주의사항</p>
                             <p className="text-[10px] text-indigo-700 font-medium leading-relaxed">
                               도메인을 변경하면 새로 생성되는 직원의 ID에 즉시 적용됩니다.<br/>
-                              이미 가입된 유저의 이메일 도메인은 유지됩니다.
+                              기존 사용자의 도메인도 아래 버튼으로 일괄 전환할 수 있습니다.
                             </p>
                          </div>
                       </div>
@@ -210,6 +254,18 @@ export const AdminSettings: React.FC = () => {
                    {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ShieldCheck className="w-5 h-5" />}
                    <span>시스템 도메인 변경 적용</span>
                 </button>
+
+                <div className="pt-4 border-t border-slate-100">
+                  <button 
+                    type="button"
+                    onClick={handleSyncAllUsersDomain}
+                    disabled={loading}
+                    className="w-full flex items-center justify-center gap-3 py-4 bg-indigo-50 text-indigo-600 font-bold rounded-2xl hover:bg-indigo-100 transition-all active:scale-95 disabled:opacity-50 border border-indigo-100"
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>기존 사용자 도메인 일체화 수행</span>
+                  </button>
+                </div>
              </form>
           </div>
 

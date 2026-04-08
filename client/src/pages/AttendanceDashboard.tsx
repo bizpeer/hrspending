@@ -225,7 +225,7 @@ export const AttendanceDashboard: React.FC = () => {
                 <div className="hidden md:block w-px h-2 bg-slate-200"></div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-[11px] font-black text-indigo-600">{userData?.name || '근로자'}</span>
-                  <span className="text-[9px] text-slate-400 font-bold">({userData?.email || user?.email || 'ID 미표기'})</span>
+                  <span className="text-[9px] text-slate-400 font-bold">({useAuthStore.getState().getDisplayEmail(userData?.email || user?.email)})</span>
                 </div>
               </div>
             </div>
@@ -389,7 +389,7 @@ export const AttendanceDashboard: React.FC = () => {
                 >
                   {allUsers.map((u) => (
                     <option key={u.id} value={u.id}>
-                      {u.name} ({u.email})
+                      {u.name} ({useAuthStore.getState().getDisplayEmail(u.email)})
                     </option>
                   ))}
                 </select>

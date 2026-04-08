@@ -45,9 +45,10 @@ interface AuthState {
   setUserData: (userData: UserData | null) => void;
   setLoginModalOpen: (isOpen: boolean) => void;
   logout: () => Promise<void>;
+  getDisplayEmail: (email?: string | null) => string; // 수정: null 허용
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   userData: null,
   systemDomain: 'internal.com', // 기본값
@@ -55,6 +56,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoginModalOpen: false,
   setUserData: (userData) => set({ userData }),
   setLoginModalOpen: (isOpen) => set({ isLoginModalOpen: isOpen }),
+  getDisplayEmail: (email?: string | null) => {
+    if (!email) return 'ID 미표기';
+    const domain = get().systemDomain;
+    const [id] = email.split('@');
+    return `${id}@${domain}`;
+  },
   fetchSystemDomain: async () => {
     try {
       const docRef = doc(db, 'config', 'system');
