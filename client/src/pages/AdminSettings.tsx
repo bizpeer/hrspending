@@ -69,6 +69,27 @@ export const AdminSettings: React.FC = () => {
     }
   };
 
+  // 0. 관리자 비밀번호 공통 검증 로직
+  const verifyAdmin = async () => {
+    if (!verifyPassword) {
+      throw new Error("관리자 비밀번호를 입력해주세요.");
+    }
+    try {
+      if (!auth.currentUser?.email) throw new Error("인증 정보가 없습니다.");
+      // 보안 재인증 수행
+      await signInWithEmailAndPassword(auth, auth.currentUser.email, verifyPassword);
+      return true;
+    } catch (err: any) {
+      if (err.code === 'auth/too-many-requests') {
+        throw new Error("보안 정책상 너무 많은 요청이 발생했습니다. 잠시 후(약 10~30분) 다시 시도해 주세요.");
+      }
+      if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        throw new Error("비밀번호가 일치하지 않습니다. 다시 확인해주세요.");
+      }
+      throw err;
+    }
+  };
+
   const handleUpdateDomain = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tempDomain || !tempDomain.includes('.')) {
@@ -83,14 +104,8 @@ export const AdminSettings: React.FC = () => {
     setLoading(true);
     setMessage({ type: '', text: '' });
     try {
-      if (!auth.currentUser?.email) throw new Error("인증 정보가 없습니다.");
-
-      // 1. 비밀번호 재검증 (본인 확인)
-      try {
-        await signInWithEmailAndPassword(auth, auth.currentUser.email, verifyPassword);
-      } catch (reauthErr) {
-        throw new Error("비밀번호가 일치하지 않습니다. 다시 확인해주세요.");
-      }
+      // 1. 비밀번호 재검증 (공통 로직 사용)
+      await verifyAdmin();
 
       // 2. 도메인 설정 저장
       await setDoc(doc(db, 'config', 'system'), {
@@ -119,10 +134,8 @@ export const AdminSettings: React.FC = () => {
     setLoading(true);
     setMessage({ type: '', text: '' });
     try {
-      if (!auth.currentUser?.email) throw new Error("인증 정보가 없습니다.");
-      
-      // 1. 비밀번호 재검증
-      await signInWithEmailAndPassword(auth, auth.currentUser.email, verifyPassword);
+      // 1. 비밀번호 재검증 (공통 로직 사용)
+      await verifyAdmin();
 
       // 2. 전체 사용자 프로필 조회 및 일괄 업데이트 (Batch)
       const querySnapshot = await getDocs(collection(db, 'UserProfile'));
