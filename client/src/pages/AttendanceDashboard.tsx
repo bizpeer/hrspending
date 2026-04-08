@@ -15,7 +15,8 @@ interface AttendanceRecord {
 }
 
 export const AttendanceDashboard: React.FC = () => {
-  const { user, userData, setLoginModalOpen } = useAuthStore();
+  const { user, userData, setLoginModalOpen, getDisplayEmail, systemDomain } = useAuthStore();
+  const { fetchSystemDomain } = useAuthStore();
   const [kstTime, setKstTime] = useState<string>('');
   const [kstDate, setKstDate] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,6 +36,11 @@ export const AttendanceDashboard: React.FC = () => {
       setSelectedUserId(user.uid);
     }
   }, [user?.uid, selectedUserId]);
+
+  // 도메인 동기화
+  useEffect(() => {
+    fetchSystemDomain();
+  }, [fetchSystemDomain]);
 
   // 관리자일 경우 전체 사용자 목록 페칭
   useEffect(() => {
@@ -225,7 +231,7 @@ export const AttendanceDashboard: React.FC = () => {
                 <div className="hidden md:block w-px h-2 bg-slate-200"></div>
                 <div className="flex items-center gap-1.5">
                   <span className="text-[11px] font-black text-indigo-600">{userData?.name || '근로자'}</span>
-                  <span className="text-[9px] text-slate-400 font-bold">({useAuthStore.getState().getDisplayEmail(userData?.email || user?.email)})</span>
+                  <span className="text-[9px] text-slate-400 font-bold" title={`Current Domain: ${systemDomain}`}>({getDisplayEmail(userData?.email || user?.email)})</span>
                 </div>
               </div>
             </div>
@@ -389,7 +395,7 @@ export const AttendanceDashboard: React.FC = () => {
                 >
                   {allUsers.map((u) => (
                     <option key={u.id} value={u.id}>
-                      {u.name} ({useAuthStore.getState().getDisplayEmail(u.email)})
+                      {u.name} ({getDisplayEmail(u.email)})
                     </option>
                   ))}
                 </select>

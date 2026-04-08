@@ -42,7 +42,7 @@ interface AuditLog {
 }
 
 export const OrganizationAdmin: React.FC = () => {
-  const { userData, systemDomain } = useAuthStore();
+  const { userData, systemDomain, getDisplayEmail } = useAuthStore();
   const navigate = useNavigate();
   const isMasterAdmin = userData?.role === 'ADMIN';
 
@@ -190,7 +190,7 @@ export const OrganizationAdmin: React.FC = () => {
       });
       
       await logAction('CREATE_EMPLOYEE', tempId, newEmp.name, `직원 등록 (${finalEmail}) / 임비 123456`);
-      alert(`[안내] 신규 직원 데이터가 등록되었습니다.\n아이디: ${finalEmail.split('@')[0]}\n임시 비밀번호: 123456`);
+      alert(`[안내] 신규 직원 데이터가 등록되었습니다.\n아이디: ${finalEmail.split('@')[0]}\n임시 비밀번호: 123456\n(표시 이메일: ${getDisplayEmail(finalEmail)})`);
       setShowEmployeeModal(false);
       setNewEmp({ name: '', email: '', teamId: '', joinDate: new Date().toISOString().split('T')[0] });
     } catch (err) {
@@ -531,7 +531,7 @@ export const OrganizationAdmin: React.FC = () => {
                             onChange={(e) => handleAppointHead(div.id, e.target.value)}
                           >
                             <option value="" className="text-slate-900">미임명</option>
-                            {employees.map(emp => <option key={emp.uid} value={emp.uid} className="text-slate-900">{emp.name}</option>)}
+                            {employees.map(emp => <option key={emp.uid} value={emp.uid} className="text-slate-900">{emp.name} ({getDisplayEmail(emp.email)})</option>)}
                           </select>
                           <ChevronRight className="w-4 h-4 text-slate-300" />
                        </div>
@@ -584,7 +584,7 @@ export const OrganizationAdmin: React.FC = () => {
                           <span className="text-xs font-black text-slate-500">팀 리더</span>
                           <select className="text-xs font-black text-emerald-600 bg-transparent border-none p-0 text-right" value={team.leaderId || ''} onChange={(e) => handleAppointLeader(team.id, e.target.value)}>
                             <option value="">미지정</option>
-                            {getEmployeesInTeam(team.id).map(emp => <option key={emp.uid} value={emp.uid}>{emp.name}</option>)}
+                            {getEmployeesInTeam(team.id).map(emp => <option key={emp.uid} value={emp.uid}>{emp.name} ({getDisplayEmail(emp.email)})</option>)}
                           </select>
                        </div>
                        <div className="space-y-2">

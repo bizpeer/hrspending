@@ -11,7 +11,7 @@ export const AdminSettings: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   // Domain Config State
-  const { fetchSystemDomain } = useAuthStore();
+  const { fetchSystemDomain, systemDomain } = useAuthStore();
   const [tempDomain, setTempDomain] = useState('');
   const [verifyPassword, setVerifyPassword] = useState('');
   
@@ -21,15 +21,20 @@ export const AdminSettings: React.FC = () => {
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        // Domain Config (from Store or Direct)
         await fetchSystemDomain();
-        setTempDomain(useAuthStore.getState().systemDomain);
       } catch (err) {
         console.error("Error fetching config:", err);
       }
     };
     fetchConfig();
   }, [fetchSystemDomain]);
+
+  // 시스템 도메인이 로드되면 입력창의 임시 상태 초기화
+  useEffect(() => {
+    if (systemDomain) {
+      setTempDomain(systemDomain);
+    }
+  }, [systemDomain]);
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
