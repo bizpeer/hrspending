@@ -230,8 +230,17 @@ export const AttendanceDashboard: React.FC = () => {
                 <p className="text-slate-400 text-[10px] font-medium">{kstDate}</p>
                 <div className="hidden md:block w-px h-2 bg-slate-200"></div>
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] font-black text-indigo-600">{userData?.name || '근로자'}</span>
-                  <span className="text-[9px] text-slate-400 font-bold" title={`Current Domain: ${systemDomain}`}>({getDisplayEmail(userData?.email || user?.email)})</span>
+                  {userData ? (
+                    <>
+                      <span className="text-[11px] font-black text-indigo-600">{userData.name}</span>
+                      <span className="text-[9px] text-slate-400 font-bold" title={`Current Domain: ${systemDomain}`}>({getDisplayEmail(userData.email)})</span>
+                    </>
+                  ) : (
+                    <div className="flex items-center gap-1.5 py-1">
+                      <Loader2 className="w-3 h-3 animate-spin text-indigo-400" />
+                      <span className="text-[10px] font-bold text-slate-400">정보 로딩 중...</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

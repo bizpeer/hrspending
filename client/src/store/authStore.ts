@@ -116,20 +116,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             if (!fallbackSnap.empty) {
               const tempDoc = fallbackSnap.docs[0];
               const tempData = tempDoc.data() as UserData;
-              console.log("[Auth] Temporary profile found. Migrating to permanent UID document...");
+              console.log("[Auth] Temporary profile found:", tempData.name);
               
               currentData = {
                 ...tempData,
-                uid: user.uid // 실제 UID로 업데이트
+                uid: user.uid,
+                mustChangePassword: true // 마이그레이션 대상은 항상 비밀번호 변경 강제
               };
 
-              // 1. 실제 UID를 ID로 하는 영구 문서 생성 (보안 규칙이 UID 기반으로 동작하기 위함)
+              // 1. 실제 UID를 ID로 하는 영구 문서 생성
               await setDoc(doc(db, 'UserProfile', user.uid), currentData);
+              console.log("[Auth] Migrated temporary doc to permanent UID doc.");
               
               // 2. 기존 임시 문서 삭제 (temp_... 형태의 문서)
               if (tempDoc.id.startsWith('temp_')) {
-                await deleteDoc(tempDoc.ref);
-                console.log("[Auth] Migration complete. Temporary document deleted.");
+                try {
+                  await deleteDoc(tempDoc.ref);
+                  console.log("[Auth] Old temporary document deleted.");
+                } catch (delErr) {
+                  console.warn("[Auth] Failed to delete temp doc (likely rules):", delErr);
+                }
               }
             }
           }

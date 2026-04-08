@@ -5,7 +5,7 @@ import {
   updatePassword
 } from 'firebase/auth';
 import { 
-  doc, setDoc, collection, getDocs, query, limit, updateDoc, addDoc, where, deleteDoc 
+  doc, setDoc, collection, getDocs, query, limit, updateDoc, addDoc 
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
@@ -54,13 +54,16 @@ export const LoginModal: React.FC = () => {
 
   // 로그인 성공 후 mustChangePassword 상태 감시
   useEffect(() => {
-    if (userData) {
-      if (userData.mustChangePassword) {
-        setIsChangeMode(true);
-      } else {
-        setIsChangeMode(false);
-        setLoginModalOpen(false); // 일반 직원 정상 로그인 시 모달 자동 닫기!
-      }
+    // userData가 완전히 로딩될 때까지 기다립니다 (fetchSystemDomain 등 포함)
+    if (!userData) return;
+
+    if (userData.mustChangePassword) {
+      console.log("[Login] mustChangePassword is TRUE. Switching to change mode.");
+      setIsChangeMode(true);
+    } else {
+      console.log("[Login] Normal user. Closing modal.");
+      setIsChangeMode(false);
+      setLoginModalOpen(false); 
     }
   }, [userData, setLoginModalOpen]);
 
@@ -73,74 +76,30 @@ export const LoginModal: React.FC = () => {
     
     try {
       const normalizedInput = rawInput.trim().toLowerCase();
-      // 유저의 요청에 따라 도메인 없는 입력을 철저히 설정된 시스템 도메인으로 강제 변환합니다.
       const authEmail = normalizedInput.includes('@') ? normalizedInput : `${normalizedInput}@${systemDomain}`;
 
-      // 1. 보안 규칙(isAuthenticated)을 뚫기 위해 가장 먼저 파이어베이스 Auth 계정부터 생성시켜서 '로그인 상태'를 만듭니다!
-      let newUid = "";
+      // 1. 보안 규칙을 통과하기 위해 Auth 계정 생성 (또는 로그인)
+      // 실제 데이터 이동(Migration)은 authStore.ts의 initAuth에서 자동으로 감지하고 처리합니다.
       try {
-        console.log("Creating auth account first to bypass read restrictions...");
-        const userCredential = await createUserWithEmailAndPassword(auth, authEmail, loginPass);
-        newUid = userCredential.user.uid;
+        console.log("[Login] Attempting auth account creation for activation...");
+        await createUserWithEmailAndPassword(auth, authEmail, loginPass);
       } catch (authErr: any) {
         if (authErr.code === 'auth/email-already-in-use') {
-           // 이미 존재한다면, 그냥 로그인을 시켜버림 (인증 상태 강제)
-           const userCredential = await signInWithEmailAndPassword(auth, authEmail, loginPass);
-           newUid = userCredential.user.uid;
+           await signInWithEmailAndPassword(auth, authEmail, loginPass);
         } else {
            throw authErr;
         }
       }
 
-      // 2. 이제 로그인(인증)된 상태이므로 어떤 보안 규칙이든 우회하여 읽기(read) 가능!
-      console.log("Authenticated! Searching user with enforced email:", authEmail);
-      const q = query(collection(db, 'UserProfile'), where('email', '==', authEmail), limit(1));
-      const snap = await getDocs(q);
-
-      if (snap.empty) {
-        throw new Error("관리자에 의해 등록되지 않은 아이디입니다. 사전 등록 여부를 확인해 주세요.");
-      }
-
-      const targetUserDoc = snap.docs[0];
-      const preRegisteredUser = targetUserDoc.data();
-      const oldDocId = targetUserDoc.id;
-
-      // 3. 보안 초기 비밀번호 체크
-      if (loginPass !== '123456') {
-        throw new Error("보안을 위해 초기 비밀번호(123456)로 로그인하여 계정을 활성화해야 합니다.");
-      }
-
-      // 4. 데이터 이전 (임시 문서 -> 실제 UID 문서)
-      try {
-        await setDoc(doc(db, 'UserProfile', newUid), {
-          ...preRegisteredUser,
-          uid: newUid,
-          email: authEmail,
-          mustChangePassword: true,
-          activatedAt: new Date().toISOString()
-        });
-      } catch (writeErr) {
-        console.error("Profile write error (non-fatal if just rules):", writeErr);
-      }
-
-      // 5. 이전 임시 문서 삭제 
-      try {
-        if (oldDocId !== newUid) {
-          await deleteDoc(doc(db, 'UserProfile', oldDocId));
-        }
-      } catch (delErr) {
-        console.log("Delete temp doc skipped due to rules:", delErr);
-      }
-
-      console.log("Auto-registration auth success for UID:", newUid);
+      console.log("[Login] Auth account ready. Waiting for authStore to migrate profile...");
     } catch (err: any) {
       let msg = err.message;
       if (err.code === 'auth/invalid-email') msg = "유효하지 않은 이메일 형식입니다.";
       if (err.code === 'auth/email-already-in-use') msg = "이미 활성화된 계정입니다. 일반 로그인을 시도하세요.";
-      if (err.code === 'permission-denied') msg = "서버 접근 권한이 서버 보안 규칙에 의해 거부되었습니다. (쓰기/읽기 권한 일시적 오류)";
+      if (err.code === 'permission-denied') msg = "현재 접근 권한이 서버 보안 규칙에 의해 거부되었습니다.";
       
       setError(msg);
-      console.error("Auto-registration failed:", err);
+      console.error("[Login] Activation failed:", err);
       setLoading(false);
     } finally {
       setAuthStatus('IDLE');
