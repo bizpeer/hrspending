@@ -192,14 +192,36 @@ export const EmployeeManagement: React.FC = () => {
   };
 
   const handleInitializePassword = async (emp: Employee) => {
-    if (!window.confirm(`${emp.name}님의 비밀번호를 '123456'으로 초기화하시겠습니까?`)) return;
+    if (!window.confirm(`${emp.name}님의 비밀번호를 '123456'으로 초기화하시겠습니까?\n(실제 로그인 비밀번호가 강제 변경됩니다.)`)) return;
+    
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    
     try {
+      // 1. 백엔드 API를 통해 실제 Auth 비밀번호 변경 시도
+      const response = await fetch(`${apiUrl}/api/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: emp.uid, password: '123456' })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '관리자 서버 응답 오류');
+      }
+
+      // 2. Firestore 상태 업데이트
       await updateDoc(doc(db, 'UserProfile', emp.uid), { 
         mustChangePassword: true 
       });
-      alert(`비밀번호 초기화 : 재설정 비밀번호는 '123456'입니다.`);
-    } catch (e) {
-      alert('오류 발생: ' + (e as Error).message);
+
+      alert(`비밀번호 초기화 : 재설정 비밀번호는 '123456'입니다.\n이제 해당 정보로 로그인이 가능합니다.`);
+    } catch (e: any) {
+      console.error('Password reset failed:', e);
+      let errorMsg = e.message;
+      if (e.message.includes('Failed to fetch')) {
+        errorMsg = '백엔드 서버(Port 3001)가 실행되지 않았거나 연결할 수 없습니다.';
+      }
+      alert(`[오류] 비밀번호 초기화 실패\n원인: ${errorMsg}`);
     }
   };
 
