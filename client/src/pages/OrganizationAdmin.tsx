@@ -3,7 +3,10 @@ import {
   PlusCircle, Users, UserPlus, 
   Trash2, Building, X, Search, ChevronRight, Briefcase, ShieldCheck, History
 } from 'lucide-react';
-import { collection, onSnapshot, addDoc, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { 
+  collection, onSnapshot, addDoc, doc, setDoc, deleteDoc, updateDoc,
+  query, where, getDocs 
+} from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
@@ -170,8 +173,17 @@ export const OrganizationAdmin: React.FC = () => {
   const handleCreateEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      let finalEmail = newEmp.email.trim().toLowerCase();
-      if (!finalEmail.includes('@')) finalEmail = `${finalEmail}@${systemDomain}`;
+      const loginInput = newEmp.email.trim().toLowerCase();
+      const finalEmail = loginInput.includes('@') ? loginInput : `${loginInput}@${systemDomain}`;
+
+      // 1. 중복 아이디 체크
+      const q = query(collection(db, 'UserProfile'), where('email', '==', finalEmail));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        alert(`[중복 오류] '${finalEmail}' 아이디는 이미 등록되어 있습니다.\n다른 아이디를 사용해 주세요.`);
+        return;
+      }
 
       const tempId = `temp_${Date.now()}`;
       const selectedTeam = teams.find(t => t.id === newEmp.teamId);
