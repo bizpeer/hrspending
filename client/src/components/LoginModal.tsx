@@ -5,7 +5,7 @@ import {
   updatePassword
 } from 'firebase/auth';
 import { 
-  doc, setDoc, collection, getDocs, query, limit, updateDoc, addDoc 
+  doc, setDoc, collection, getDocs, query, limit, updateDoc, addDoc, where 
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useAuthStore } from '../store/authStore';
@@ -130,8 +130,33 @@ export const LoginModal: React.FC = () => {
 
     const loginInput = email.trim().toLowerCase();
     
-    // Auth 인증용 이메일 결정 (설정된 시스템 도메인 강제)
-    const authEmail = loginInput.includes('@') ? loginInput : `${loginInput}@${systemDomain}`;
+    // Auth 인증용 이메일 결정
+    let authEmail = loginInput;
+    
+    // 만약 @가 포함되어 있지 않다면 (아이디만 입력했다면) 실제 계정 탐색 시도
+    if (!loginInput.includes('@')) {
+      try {
+        const q = query(
+          collection(db, 'UserProfile'),
+          where('email', '>=', loginInput + '@'),
+          where('email', '<=', loginInput + '@' + '\uf8ff'),
+          limit(1)
+        );
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          const actualEmail = querySnapshot.docs[0].data().email;
+          console.log(`[Discovery] ID '${loginInput}' matched actual email: ${actualEmail}`);
+          authEmail = actualEmail;
+        } else {
+          // 탐색 실패 시 기본 도메인 사용 (폴백)
+          authEmail = `${loginInput}@${systemDomain}`;
+        }
+      } catch (discoveryErr) {
+        console.warn('Email discovery failed:', discoveryErr);
+        authEmail = `${loginInput}@${systemDomain}`;
+      }
+    }
 
     try {
       await signInWithEmailAndPassword(auth, authEmail, password);
