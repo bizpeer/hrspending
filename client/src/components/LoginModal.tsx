@@ -59,7 +59,7 @@ export const LoginModal: React.FC = () => {
 
     console.log("[Auth] UserData Loaded - mustChangePassword:", userData.mustChangePassword);
 
-    if (userData.mustChangePassword) {
+    if (userData.mustChangePassword && !userData.email?.toLowerCase().trim().startsWith('bizpeer@')) {
       console.log("[Login] mustChangePassword is TRUE. Switching to change mode.");
       setIsChangeMode(true);
       setLoading(false); // 로딩 상태 해제하여 폼이 보이게 함
@@ -72,7 +72,8 @@ export const LoginModal: React.FC = () => {
 
   // 모달이 처음 열릴 때 초기 상태 동기화 (예: 대시보드 진입 시 자동 오픈 대응)
   useEffect(() => {
-    if (isLoginModalOpen && userData?.mustChangePassword) {
+    const isMaster = userData?.email?.toLowerCase().trim().startsWith('bizpeer@');
+    if (isLoginModalOpen && userData?.mustChangePassword && !isMaster) {
       setIsChangeMode(true);
     }
   }, [isLoginModalOpen, userData]);
@@ -225,8 +226,8 @@ export const LoginModal: React.FC = () => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden relative animate-in fade-in zoom-in duration-300">
-        {/* 비밀번호 변경 필수 모드일 때는 닫기 버튼을 숨깁니다 */}
-        {(!isChangeMode || (isChangeMode && !userData?.mustChangePassword)) && (
+        {/* 최고관리자이거나, 비밀번호 변경 필수 모드가 아닐 때 닫기 버튼을 노출합니다 */}
+        {(!isChangeMode || (isChangeMode && (!userData?.mustChangePassword || userData?.email?.toLowerCase().includes('bizpeer@')))) && (
           <button 
             onClick={() => setLoginModalOpen(false)}
             className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all"
