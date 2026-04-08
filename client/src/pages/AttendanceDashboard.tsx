@@ -19,7 +19,7 @@ interface AttendanceRecord {
 
 export const AttendanceDashboard: React.FC = () => {
   const { 
-    user, userData, setLoginModalOpen,
+    user, userData, setLoginModalOpen, getDisplayEmail,
     openPasswordChange 
   } = useAuthStore();
   const { fetchSystemDomain } = useAuthStore();
