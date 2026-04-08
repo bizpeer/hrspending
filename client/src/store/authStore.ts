@@ -185,7 +185,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             return;
           }
           
-          set({ userData: currentData, loading: false });
+          set({ 
+            userData: currentData, 
+            loading: false,
+            // 비밀번호 변경이 필요한 경우 모달을 강제로 엽니다.
+            isLoginModalOpen: currentData?.mustChangePassword || false 
+          });
+          if (currentData?.mustChangePassword) {
+            console.log("[Auth] Password change REQUIRED. Opening modal globally.");
+          }
           console.log("[Auth] Final UserData:", currentData);
         } catch (error) {
           console.error("[Auth] Error fetching doc:", error);

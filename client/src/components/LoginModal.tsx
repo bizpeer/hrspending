@@ -70,6 +70,13 @@ export const LoginModal: React.FC = () => {
     }
   }, [userData, setLoginModalOpen]);
 
+  // 모달이 처음 열릴 때 초기 상태 동기화 (예: 대시보드 진입 시 자동 오픈 대응)
+  useEffect(() => {
+    if (isLoginModalOpen && userData?.mustChangePassword) {
+      setIsChangeMode(true);
+    }
+  }, [isLoginModalOpen, userData]);
+
   if (!isLoginModalOpen) return null;
 
   // 자동 계정 생성 로직 (관리자 사전 등록 직원)
@@ -218,7 +225,8 @@ export const LoginModal: React.FC = () => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden relative animate-in fade-in zoom-in duration-300">
-        {!isChangeMode && (
+        {/* 비밀번호 변경 필수 모드일 때는 닫기 버튼을 숨깁니다 */}
+        {(!isChangeMode || (isChangeMode && !userData?.mustChangePassword)) && (
           <button 
             onClick={() => setLoginModalOpen(false)}
             className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all"
