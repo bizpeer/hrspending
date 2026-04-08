@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Users, Search, Building, Filter, Trash2, UserX, Key, 
+  Users, Search, Building, Filter, Trash2, UserX, UserCheck, Key, 
   ChevronRight, Loader2, ShieldAlert,
   Calendar, X
 } from 'lucide-react';
@@ -140,12 +140,17 @@ export const EmployeeManagement: React.FC = () => {
     }
   };
 
-  const handleTerminate = async (emp: Employee) => {
-    if (!window.confirm(`[퇴사 처리] ${emp.name}님의 계정을 비활성화하시겠습니까? 기록은 유지되지만 로그인이 차단됩니다.`)) return;
+  const handleToggleStatus = async (emp: Employee, newStatus: 'ACTIVE' | 'RESIGNED') => {
+    const isActactivating = newStatus === 'ACTIVE';
+    const confirmMsg = isActactivating 
+      ? `[업무정지 해제] ${emp.name}님의 계정을 다시 활성화하시겠습니까?`
+      : `[퇴사(업무정지) 처리] ${emp.name}님의 계정을 정지하시겠습니까? 기록은 유지되지만 로그인이 차단됩니다.`;
+
+    if (!window.confirm(confirmMsg)) return;
     
     try {
-      await updateDoc(doc(db, 'UserProfile', emp.uid), { status: 'RESIGNED' });
-      alert('퇴사 처리가 완료되었습니다.');
+      await updateDoc(doc(db, 'UserProfile', emp.uid), { status: newStatus });
+      alert(isActactivating ? '계정이 활성화되었습니다.' : '퇴사(업무정지) 처리가 완료되었습니다.');
     } catch (e) {
       alert('오류 발생: ' + (e as Error).message);
     }
@@ -339,7 +344,7 @@ export const EmployeeManagement: React.FC = () => {
                       <td className="px-8 py-6">
                         <div className="flex justify-center">
                           {isResigned ? (
-                            <span className="px-3 py-1 bg-rose-50 text-rose-500 text-[10px] font-black rounded-full border border-rose-100">퇴사자</span>
+                            <span className="px-3 py-1 bg-rose-50 text-rose-500 text-[10px] font-black rounded-full border border-rose-100">퇴사(업무정지)</span>
                           ) : (
                             <span className="px-3 py-1 bg-emerald-50 text-emerald-500 text-[10px] font-black rounded-full border border-emerald-100">정상</span>
                           )}
@@ -354,15 +359,15 @@ export const EmployeeManagement: React.FC = () => {
                           >
                             <Key className="w-4 h-4" />
                           </button>
-                          {!isResigned && (
-                            <button 
-                              onClick={() => handleTerminate(emp)}
-                              className="p-2.5 hover:bg-amber-50 hover:text-amber-600 rounded-xl transition-all"
-                              title="퇴사 처리"
-                            >
-                              <UserX className="w-4 h-4" />
-                            </button>
-                          )}
+                          <button 
+                            onClick={() => handleToggleStatus(emp, isResigned ? 'ACTIVE' : 'RESIGNED')}
+                            className={`p-2.5 rounded-xl transition-all ${
+                              isResigned ? 'hover:bg-emerald-50 hover:text-emerald-600' : 'hover:bg-amber-50 hover:text-amber-600'
+                            }`}
+                            title={isResigned ? '업무정지 해제' : '퇴사(업무정지) 처리'}
+                          >
+                            {isResigned ? <UserCheck className="w-4 h-4" /> : <UserX className="w-4 h-4" />}
+                          </button>
                           <button 
                             onClick={() => setDeleteConfirmEmp(emp)}
                             className="p-2.5 hover:bg-rose-50 hover:text-rose-600 rounded-xl transition-all"

@@ -188,7 +188,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           if (currentData?.status === 'RESIGNED') {
             await auth.signOut();
             set({ user: null, userData: null, loading: false });
-            alert("퇴사 처리된 계정입니다. 시스템에 접속할 수 없습니다.");
+            alert("퇴사(업무정지) 처리된 계정입니다. 시스템에 접속할 수 없습니다.");
             return;
           }
           
