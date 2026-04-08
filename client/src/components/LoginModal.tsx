@@ -54,12 +54,15 @@ export const LoginModal: React.FC = () => {
 
   // 로그인 성공 후 mustChangePassword 상태 감시
   useEffect(() => {
-    // userData가 완전히 로딩될 때까지 기다립니다 (fetchSystemDomain 등 포함)
+    // userData가 완전히 로딩될 때까지 기다립니다
     if (!userData) return;
+
+    console.log("[Auth] UserData Loaded - mustChangePassword:", userData.mustChangePassword);
 
     if (userData.mustChangePassword) {
       console.log("[Login] mustChangePassword is TRUE. Switching to change mode.");
       setIsChangeMode(true);
+      setLoading(false); // 로딩 상태 해제하여 폼이 보이게 함
     } else {
       console.log("[Login] Normal user. Closing modal.");
       setIsChangeMode(false);
@@ -262,22 +265,26 @@ export const LoginModal: React.FC = () => {
                       </div>
                     )}
                     <div className="text-left">
-                      <label className="block text-xs font-bold text-gray-500 uppercase ml-1 mb-1.5">새 비밀번호</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase ml-1 mb-1.5">새 비밀번호 (1차 입력)</label>
                       <input
                         type="password"
                         required
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                        className="w-full px-4 py-3 border-2 border-indigo-100 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
                         placeholder="최소 6자 이상"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                       />
                     </div>
                     <div className="text-left">
-                      <label className="block text-xs font-bold text-gray-500 uppercase ml-1 mb-1.5">비밀번호 확인</label>
+                      <label className="block text-xs font-bold text-gray-500 uppercase ml-1 mb-1.5">비밀번호 재확인 (2차 입력)</label>
                       <input
                         type="password"
                         required
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
+                        className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 outline-none transition-all ${
+                          confirmPassword && newPassword !== confirmPassword 
+                            ? 'border-red-200 focus:ring-red-500 focus:border-red-500' 
+                            : 'border-indigo-100 focus:ring-indigo-500 focus:border-indigo-500'
+                        }`}
                         placeholder="새 비밀번호 다시 입력"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
