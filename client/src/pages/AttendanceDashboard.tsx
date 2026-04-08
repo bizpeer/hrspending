@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, LogIn, LogOut, Loader2, Calendar as CalendarIcon, MapPin, History } from 'lucide-react';
+import { 
+  Clock, LogIn, LogOut, Loader2, Calendar as CalendarIcon, MapPin, History,
+  KeyRound 
+} from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { collection, query, where, onSnapshot, addDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -15,7 +18,10 @@ interface AttendanceRecord {
 }
 
 export const AttendanceDashboard: React.FC = () => {
-  const { user, userData, setLoginModalOpen, getDisplayEmail, systemDomain } = useAuthStore();
+  const { 
+    user, userData, setLoginModalOpen, getDisplayEmail, systemDomain,
+    openPasswordChange 
+  } = useAuthStore();
   const { fetchSystemDomain } = useAuthStore();
   const [kstTime, setKstTime] = useState<string>('');
   const [kstDate, setKstDate] = useState<string>('');
@@ -244,6 +250,15 @@ export const AttendanceDashboard: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* 비밀번호 변경 버튼 추가 */}
+            <button
+              onClick={openPasswordChange}
+              className="flex items-center gap-1.5 px-3 py-2 bg-white text-slate-600 rounded-xl shadow-sm border border-slate-100 hover:bg-slate-50 transition-all active:scale-95 group"
+            >
+              <KeyRound className="w-3.5 h-3.5 text-indigo-500 group-hover:rotate-12 transition-transform" />
+              <span className="text-[11px] font-bold">비밀번호 변경</span>
+            </button>
 
             {/* 연차 요약 축소형 */}
             <div className="flex gap-2 bg-white p-1 rounded-xl shadow-md border border-slate-100">

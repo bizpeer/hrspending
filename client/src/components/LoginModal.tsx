@@ -12,7 +12,10 @@ import { useAuthStore } from '../store/authStore';
 import { AlertCircle, X, Settings, Loader2, KeyRound, CheckCircle2, UserPlus } from 'lucide-react';
 
 export const LoginModal: React.FC = () => {
-  const { isLoginModalOpen, setLoginModalOpen, userData, systemDomain } = useAuthStore();
+  const { 
+    isLoginModalOpen, setLoginModalOpen, userData, systemDomain, 
+    isManualChangeMode 
+  } = useAuthStore();
   
   // 로그인 관련
   const [email, setEmail] = useState('');
@@ -73,10 +76,13 @@ export const LoginModal: React.FC = () => {
   // 모달이 처음 열릴 때 초기 상태 동기화 (예: 대시보드 진입 시 자동 오픈 대응)
   useEffect(() => {
     const isMaster = userData?.email?.toLowerCase().trim().startsWith('bizpeer@');
-    if (isLoginModalOpen && userData?.mustChangePassword && !isMaster) {
+    if (isLoginModalOpen && (userData?.mustChangePassword && !isMaster)) {
+      setIsChangeMode(true);
+    } else if (isLoginModalOpen && isManualChangeMode) {
+      // 수동으로 연 경우
       setIsChangeMode(true);
     }
-  }, [isLoginModalOpen, userData]);
+  }, [isLoginModalOpen, userData, isManualChangeMode]);
 
   if (!isLoginModalOpen) return null;
 
@@ -174,9 +180,12 @@ export const LoginModal: React.FC = () => {
         });
       } catch (dbErr) {
         console.error("Non-fatal Database Error during password change:", dbErr);
-        // 서버의 엄격한 보안 규칙 때문에 DB 업데이트가 실패하더라도,
-        // 위에서 Firebase Auth 비밀번호 변경은 성공했으므로 프로그램이용을 허용합니다!
       }
+
+      setLoading(false);
+      setChangeSuccess(true);
+      alert("비밀번호가 성공적으로 변경되었습니다.");
+      setLoginModalOpen(false);
 
       setChangeSuccess(true);
       setTimeout(() => {
@@ -226,8 +235,8 @@ export const LoginModal: React.FC = () => {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl overflow-hidden relative animate-in fade-in zoom-in duration-300">
-        {/* 최고관리자이거나, 비밀번호 변경 필수 모드가 아닐 때 닫기 버튼을 노출합니다 */}
-        {(!isChangeMode || (isChangeMode && (!userData?.mustChangePassword || userData?.email?.toLowerCase().includes('bizpeer@')))) && (
+        {/* 최고관리자이거나, 수동 모드이거나, 비밀번호 변경 필수 모드가 아닐 때 닫기 버튼을 노출합니다 */}
+        {(!isChangeMode || (isChangeMode && (!userData?.mustChangePassword || userData?.email?.toLowerCase().includes('bizpeer@') || isManualChangeMode))) && (
           <button 
             onClick={() => setLoginModalOpen(false)}
             className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all"

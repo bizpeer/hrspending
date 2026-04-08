@@ -40,11 +40,13 @@ interface AuthState {
   systemDomain: string; // 추가: 시스템 기본 도메인
   loading: boolean;
   isLoginModalOpen: boolean;
+  isManualChangeMode: boolean; // 추가: 수동 비밀번호 변경 모드
   initAuth: () => (() => void);
   fetchSystemDomain: () => Promise<void>; 
   subscribeSystemDomain: () => (() => void); // 추가: 실시간 구독
   setUserData: (userData: UserData | null) => void;
   setLoginModalOpen: (isOpen: boolean) => void;
+  openPasswordChange: () => void; // 추가: 수동 비밀번호 변경 오픈
   logout: () => Promise<void>;
   getDisplayEmail: (email?: string | null) => string; 
 }
@@ -55,8 +57,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   systemDomain: 'internal.com', // 기본값
   loading: true,
   isLoginModalOpen: false,
+  isManualChangeMode: false,
   setUserData: (userData) => set({ userData }),
-  setLoginModalOpen: (isOpen) => set({ isLoginModalOpen: isOpen }),
+  setLoginModalOpen: (isOpen) => set({ 
+    isLoginModalOpen: isOpen,
+    isManualChangeMode: isOpen ? get().isManualChangeMode : false 
+  }),
+  openPasswordChange: () => set({ isLoginModalOpen: true, isManualChangeMode: true }),
   getDisplayEmail: (email?: string | null) => {
     if (!email) return 'ID 미표기';
     const domain = get().systemDomain;
