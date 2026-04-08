@@ -193,7 +193,11 @@ export const LoginModal: React.FC = () => {
         setChangeSuccess(false);
       }, 2000);
     } catch (err: any) {
-      setError('비밀번호 변경 실패: ' + err.message);
+      if (err.code === 'auth/requires-recent-login') {
+        setError('보안 세션이 만료되었습니다. 안전한 비밀번호 변경을 위해 로그아웃 후 다시 로그인해 주세요.');
+      } else {
+        setError('비밀번호 변경 실패: ' + err.message);
+      }
       console.error(err);
     } finally {
       setLoading(false);
