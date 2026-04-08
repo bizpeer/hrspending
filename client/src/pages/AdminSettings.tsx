@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Database, Lock, Save, AlertCircle, CheckCircle2, ShieldCheck, Key, Globe, Layout, ShieldAlert, Fingerprint } from 'lucide-react';
+import { Settings, Lock, AlertCircle, CheckCircle2, ShieldCheck, Key, Globe, Layout, Fingerprint, ShieldAlert } from 'lucide-react';
 import { auth, db } from '../firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { updatePassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { updatePassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { useAuthStore } from '../store/authStore';
 
 export const AdminSettings: React.FC = () => {
-  // Supabase Config State
-  const [supabaseUrl, setSupabaseUrl] = useState('');
-  const [supabaseAnonKey, setSupabaseAnonKey] = useState('');
-  
   // Password Reset State
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  // Domain Config State
+  const { fetchSystemDomain } = useAuthStore();
+  const [tempDomain, setTempDomain] = useState('');
+  const [verifyPassword, setVerifyPassword] = useState('');
   
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
@@ -19,37 +21,15 @@ export const AdminSettings: React.FC = () => {
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const docRef = doc(db, 'config', 'supabase');
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          setSupabaseUrl(data.url || '');
-          setSupabaseAnonKey(data.anonKey || '');
-        }
+        // Domain Config (from Store or Direct)
+        await fetchSystemDomain();
+        setTempDomain(useAuthStore.getState().systemDomain);
       } catch (err) {
         console.error("Error fetching config:", err);
       }
     };
     fetchConfig();
-  }, []);
-
-  const handleSaveDbConfig = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setMessage({ type: '', text: '' });
-    try {
-      await setDoc(doc(db, 'config', 'supabase'), {
-        url: supabaseUrl,
-        anonKey: supabaseAnonKey,
-        updatedAt: new Date().toISOString()
-      });
-      setMessage({ type: 'success', text: '데이터베이스 연결 설정이 안전하게 저장되었습니다.' });
-    } catch (err: any) {
-      setMessage({ type: 'error', text: '저장 실패: ' + err.message });
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [fetchSystemDomain]);
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,6 +64,48 @@ export const AdminSettings: React.FC = () => {
     }
   };
 
+  const handleUpdateDomain = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tempDomain || !tempDomain.includes('.')) {
+      setMessage({ type: 'error', text: '유효한 회사 도메인 형식을 입력해주세요 (예: bzpeer.com)' });
+      return;
+    }
+    if (!verifyPassword) {
+      setMessage({ type: 'error', text: '설정 변경을 위해 관리자 비밀번호를 입력해주세요.' });
+      return;
+    }
+
+    setLoading(true);
+    setMessage({ type: '', text: '' });
+    try {
+      if (!auth.currentUser?.email) throw new Error("인증 정보가 없습니다.");
+
+      // 1. 비밀번호 재검증 (본인 확인)
+      try {
+        await signInWithEmailAndPassword(auth, auth.currentUser.email, verifyPassword);
+      } catch (reauthErr) {
+        throw new Error("비밀번호가 일치하지 않습니다. 다시 확인해주세요.");
+      }
+
+      // 2. 도메인 설정 저장
+      await setDoc(doc(db, 'config', 'system'), {
+        defaultDomain: tempDomain.replace('@', ''), // @ 기호 제거
+        updatedAt: new Date().toISOString(),
+        updatedBy: auth.currentUser.uid
+      });
+
+      // 3. 스토어 갱신
+      await fetchSystemDomain();
+      
+      setMessage({ type: 'success', text: `시스템 기본 도메인이 @${tempDomain}으로 변경되었습니다.` });
+      setVerifyPassword('');
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="flex-1 p-4 md:p-10 bg-slate-50 min-h-screen">
       <div className="max-w-6xl mx-auto space-y-10">
@@ -96,7 +118,7 @@ export const AdminSettings: React.FC = () => {
             </div>
             <h1 className="text-3xl font-black text-slate-900 tracking-tight">시스템 환경 설정</h1>
           </div>
-          <p className="text-slate-500 font-medium">데이터베이스 연동 및 관리자 보안 옵션을 구성합니다.</p>
+          <p className="text-slate-500 font-medium">인사 시스템 기본 정보 및 관리자 보안 옵션을 구성합니다.</p>
         </div>
 
         {/* Status Message */}
@@ -118,67 +140,77 @@ export const AdminSettings: React.FC = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
           
-          {/* Cloud Database Integration Section */}
+          {/* System Default Domain Section - Replacing External DB per user request */}
           <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden group">
-            <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-50/50">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-slate-900 text-white rounded-xl">
-                  <Database className="w-5 h-5" />
+             <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-indigo-50/50">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-600 text-white rounded-xl">
+                    <Globe className="w-5 h-5" />
+                  </div>
+                  <h2 className="text-xl font-black text-slate-800 tracking-tight">시스템 기본 도메인 설정</h2>
                 </div>
-                <h2 className="text-xl font-black text-slate-800 tracking-tight">외부 DB 연동 엔진</h2>
-              </div>
-              <span className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full border border-indigo-100 uppercase tracking-widest">
-                Supabase
-              </span>
-            </div>
-
-            <form onSubmit={handleSaveDbConfig} className="p-8 space-y-8">
-              <div className="space-y-6">
-                <div className="space-y-3">
-                  <label className="flex items-center gap-2 text-sm font-black text-slate-800 ml-1">
-                    <Globe className="w-4 h-4 text-indigo-500" /> API Endpoint URL
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={supabaseUrl}
-                    onChange={(e) => setSupabaseUrl(e.target.value)}
-                    placeholder="https://project.supabase.co"
-                    className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-indigo-500 focus:bg-white outline-none transition-all font-bold text-slate-700 shadow-inner"
-                  />
+                <div className="flex items-center gap-2">
+                   <ShieldCheck className="w-4 h-4 text-indigo-500" />
+                   <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">Global Policy</span>
                 </div>
-                <div className="space-y-3">
-                  <label className="flex items-center gap-2 text-sm font-black text-slate-800 ml-1">
-                    <Key className="w-4 h-4 text-indigo-500" /> Anon Public API Key
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={supabaseAnonKey}
-                    onChange={(e) => setSupabaseAnonKey(e.target.value)}
-                    placeholder="eyJhbGc..."
-                    className="w-full px-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-indigo-500 focus:bg-white outline-none transition-all font-bold text-slate-700 shadow-inner"
-                  />
+             </div>
+
+             <form onSubmit={handleUpdateDomain} className="p-8 space-y-6">
+                <div className="space-y-6">
+                   <div className="space-y-3">
+                      <label className="flex items-center gap-2 text-sm font-black text-slate-800 ml-1">
+                        회사 공용 도메인 (Email Domain)
+                      </label>
+                      <div className="relative">
+                         <span className="absolute left-6 top-1/2 -translate-y-1/2 text-slate-400 font-bold">@</span>
+                         <input 
+                           type="text"
+                           value={tempDomain}
+                           onChange={(e) => setTempDomain(e.target.value.replace('@', ''))}
+                           placeholder="bzpeer.com"
+                           className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-transparent rounded-2xl focus:border-indigo-500 focus:bg-white outline-none transition-all font-bold text-slate-700 shadow-inner"
+                         />
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-bold ml-1">입력 시 자동 완성 및 기본 ID 배정에 사용됩니다.</p>
+                   </div>
+
+                   <div className="space-y-3">
+                      <label className="flex items-center gap-2 text-sm font-black text-rose-600 ml-1">
+                        <Key className="w-4 h-4" /> 정보 변경 승인 (관리자 암호)
+                      </label>
+                      <input 
+                        type="password"
+                        required
+                        value={verifyPassword}
+                        onChange={(e) => setVerifyPassword(e.target.value)}
+                        placeholder="현재 접속된 관리자 비밀번호 입력"
+                        className="w-full px-6 py-4 bg-rose-50/30 border-2 border-transparent rounded-2xl focus:border-rose-500 focus:bg-white outline-none transition-all font-bold text-slate-700 shadow-inner"
+                      />
+                   </div>
+
+                   <div className="p-5 bg-indigo-50/30 rounded-2xl border border-indigo-100/50">
+                      <div className="flex items-start gap-3">
+                         <AlertCircle className="w-4 h-4 text-indigo-500 mt-0.5" />
+                         <div className="space-y-1">
+                            <p className="text-[11px] font-black text-indigo-900">도메인 변경 시 주의사항</p>
+                            <p className="text-[10px] text-indigo-700 font-medium leading-relaxed">
+                              도메인을 변경하면 새로 생성되는 직원의 ID에 즉시 적용됩니다.<br/>
+                              이미 가입된 유저의 이메일 도메인은 유지됩니다.
+                            </p>
+                         </div>
+                      </div>
+                   </div>
                 </div>
-              </div>
 
-              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 flex items-start gap-4">
-                 <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                 <p className="text-[11px] font-bold text-amber-700 leading-relaxed">
-                   입력된 정보는 시스템 내에서 비동기 데이터 통합 및 확장에 사용됩니다. 
-                   잘못된 접근 키를 입력할 경우 외부 API 요청 시 오류가 발생할 수 있습니다.
-                 </p>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex items-center justify-center gap-3 py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl shadow-slate-200 hover:bg-black transition-all active:scale-95 disabled:opacity-50"
-              >
-                {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-5 h-5" />}
-                <span>엔진 설정 업데이트</span>
-              </button>
-            </form>
+                <button 
+                  type="submit"
+                  disabled={loading}
+                  className="w-full flex items-center justify-center gap-3 py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl shadow-slate-200 hover:bg-black transition-all active:scale-95 disabled:opacity-50"
+                >
+                   {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <ShieldCheck className="w-5 h-5" />}
+                   <span>시스템 도메인 변경 적용</span>
+                </button>
+             </form>
           </div>
 
           {/* Security & Access Protection Section */}
@@ -225,19 +257,6 @@ export const AdminSettings: React.FC = () => {
                 </div>
               </div>
 
-              <div className="space-y-4">
-                 <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                    <Layout className="w-5 h-5 text-indigo-500" />
-                    <div className="flex-1">
-                       <p className="text-[11px] font-black text-slate-700 uppercase tracking-wider">자동 세션 보존</p>
-                       <p className="text-[10px] text-slate-400 font-bold">변경 즉시 모든 활성 세션에 보안 정책이 적용됩니다.</p>
-                    </div>
-                    <div className="w-10 h-5 bg-indigo-600 rounded-full relative">
-                       <div className="absolute right-1 top-1 w-3 h-3 bg-white rounded-full shadow-sm" />
-                    </div>
-                 </div>
-              </div>
-
               <button
                 type="submit"
                 disabled={loading}
@@ -248,6 +267,59 @@ export const AdminSettings: React.FC = () => {
               </button>
             </form>
           </div>
+
+          {/* System Infrastructure Info - Added to replace/restore previous External DB info */}
+          <div className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-100 overflow-hidden lg:col-span-2">
+            <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-slate-900">
+               <div className="flex items-center gap-3">
+                 <div className="p-2 bg-indigo-500 text-white rounded-xl">
+                   <Layout className="w-5 h-5" />
+                 </div>
+                 <h2 className="text-xl font-black text-white tracking-tight">시스템 백본 및 인프라 상태</h2>
+               </div>
+               <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+                  <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Core Engine Active</span>
+               </div>
+            </div>
+            <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+               <div className="space-y-2">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">주력 데이터베이스 엔진</p>
+                  <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                     <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center text-orange-600 font-black italic">F</div>
+                     <div>
+                        <p className="text-sm font-black text-slate-800">Firebase Firestore</p>
+                        <p className="text-[10px] text-slate-400 font-bold">Cloud Native NoSQL</p>
+                     </div>
+                  </div>
+               </div>
+               <div className="space-y-2">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">인증 보안 프로토콜</p>
+                  <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                     <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600">
+                        <ShieldCheck className="w-5 h-5" />
+                     </div>
+                     <div>
+                        <p className="text-sm font-black text-slate-800">Firebase Auth</p>
+                        <p className="text-[10px] text-slate-400 font-bold">JWT / OAuth 2.0</p>
+                     </div>
+                  </div>
+               </div>
+               <div className="space-y-2">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">파일 서버 스토리지</p>
+                  <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                     <div className="w-10 h-10 bg-sky-100 rounded-xl flex items-center justify-center text-sky-600">
+                        <Globe className="w-5 h-5" />
+                     </div>
+                     <div>
+                        <p className="text-sm font-black text-slate-800">Firebase Storage</p>
+                        <p className="text-[10px] text-slate-400 font-bold">GCP Infrastructure</p>
+                     </div>
+                  </div>
+               </div>
+            </div>
+          </div>
+
         </div>
 
         {/* Footer info */}

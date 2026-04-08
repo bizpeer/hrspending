@@ -4,6 +4,7 @@ import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { AlertCircle } from 'lucide-react';
+import { useAuthStore } from '../store/authStore';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -12,6 +13,7 @@ export const Login: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { systemDomain } = useAuthStore();
 
   const from = location.state?.from?.pathname || '/dashboard';
 
@@ -23,7 +25,7 @@ export const Login: React.FC = () => {
     // bizpeer 아이디를 내부 이메일 형식으로 변환
     let loginEmail = email;
     if (email === 'bizpeer') {
-      loginEmail = 'bizpeer@internal.com';
+      loginEmail = `bizpeer@${systemDomain}`;
     }
 
     try {
@@ -40,7 +42,7 @@ export const Login: React.FC = () => {
   // 마스터 어드민 시딩 (최초 1회용 자동생성)
   const handleSeedMasterAdmin = async () => {
     const adminId = "bizpeer";
-    const adminEmail = "bizpeer@internal.com";
+    const adminEmail = `bizpeer@${systemDomain}`;
     const adminPassword = "123456";
 
     try {

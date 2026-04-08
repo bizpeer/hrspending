@@ -101,7 +101,7 @@ const calculateNetPay = (emp: Partial<UserData> & { currentVal?: number }) => {
 
 export const SalaryManagement: React.FC = () => {
   const { user, userData } = useAuthStore();
-  const isMaster = user?.email?.toLowerCase().trim() === 'bizpeer@internal.com';
+  const isMaster = user?.email?.toLowerCase().trim().startsWith('bizpeer@');
   const isAdminOrMaster = isMaster || userData?.role === 'ADMIN';
   const [employees, setEmployees] = useState<UserData[]>([]);
   const [divisions, setDivisions] = useState<any[]>([]);

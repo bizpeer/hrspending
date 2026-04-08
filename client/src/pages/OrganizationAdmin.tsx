@@ -42,7 +42,7 @@ interface AuditLog {
 }
 
 export const OrganizationAdmin: React.FC = () => {
-  const { userData } = useAuthStore();
+  const { userData, systemDomain } = useAuthStore();
   const navigate = useNavigate();
   const isMasterAdmin = userData?.role === 'ADMIN';
 
@@ -171,7 +171,7 @@ export const OrganizationAdmin: React.FC = () => {
     e.preventDefault();
     try {
       let finalEmail = newEmp.email.trim().toLowerCase();
-      if (!finalEmail.includes('@')) finalEmail = `${finalEmail}@internal.com`;
+      if (!finalEmail.includes('@')) finalEmail = `${finalEmail}@${systemDomain}`;
 
       const tempId = `temp_${Date.now()}`;
       const selectedTeam = teams.find(t => t.id === newEmp.teamId);

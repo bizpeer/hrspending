@@ -37,9 +37,11 @@ export interface UserData {
 interface AuthState {
   user: User | null;
   userData: UserData | null;
+  systemDomain: string; // 추가: 시스템 기본 도메인
   loading: boolean;
   isLoginModalOpen: boolean;
   initAuth: () => (() => void);
+  fetchSystemDomain: () => Promise<void>; // 추가
   setUserData: (userData: UserData | null) => void;
   setLoginModalOpen: (isOpen: boolean) => void;
   logout: () => Promise<void>;
@@ -48,10 +50,32 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   userData: null,
+  systemDomain: 'internal.com', // 기본값
   loading: true,
   isLoginModalOpen: false,
   setUserData: (userData) => set({ userData }),
   setLoginModalOpen: (isOpen) => set({ isLoginModalOpen: isOpen }),
+  fetchSystemDomain: async () => {
+    try {
+      const docRef = doc(db, 'config', 'system');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.defaultDomain) {
+          const cleanDomain = data.defaultDomain.replace('@', '').trim();
+          set({ systemDomain: cleanDomain });
+          console.log(`[System] Domain loaded: @${cleanDomain}`);
+        }
+      } else {
+        console.warn("[System] Domain config not found. Using default: internal.com");
+        set({ systemDomain: 'internal.com' });
+      }
+    } catch (err) {
+      console.error("[System] Failed to fetch system domain:", err);
+      // 에러 발생 시에도 최소한의 작동을 위해 기본값 유지
+      set({ systemDomain: 'internal.com' });
+    }
+  },
   logout: async () => {
     try {
       await auth.signOut();
@@ -61,11 +85,16 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
   initAuth: () => {
+    // 도메인 먼저 가져오기
+    const store = useAuthStore.getState();
+    store.fetchSystemDomain();
+
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       console.log("[Auth] State Change:", user ? `Logged in (${user.email})` : "Logged out");
       
       if (user) {
-        const isMaster = user.email?.toLowerCase().trim() === 'bizpeer@internal.com';
+        // bizpeer@ 로 시작하는 모든 도메인의 계정을 마스터로 인정
+        const isMaster = user.email?.toLowerCase().trim().startsWith('bizpeer@');
         set({ user, loading: true });
         try {
           const profileDoc = await getDoc(doc(db, 'UserProfile', user.uid));
@@ -103,7 +132,7 @@ export const useAuthStore = create<AuthState>((set) => ({
             if (!currentData || currentData.role !== 'ADMIN') {
               currentData = {
                 uid: user.uid,
-                email: user.email || 'bizpeer@internal.com',
+                email: user.email || `bizpeer@${useAuthStore.getState().systemDomain}`,
                 name: currentData?.name || '최고 관리자',
                 role: 'ADMIN',
                 teamHistory: currentData?.teamHistory || [],

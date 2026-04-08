@@ -20,7 +20,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <div className="flex h-screen items-center justify-center">Loading...</div>;
   }
 
-  const isMaster = user?.email?.toLowerCase().trim() === 'bizpeer@internal.com';
+  const isMaster = user?.email?.toLowerCase().trim().startsWith('bizpeer@');
 
   if (!user) {
     // 아예 로그인이 안 된 경우 (Auth 없음)

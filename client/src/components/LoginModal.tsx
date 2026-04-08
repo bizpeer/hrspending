@@ -12,7 +12,7 @@ import { useAuthStore } from '../store/authStore';
 import { AlertCircle, X, Settings, Loader2, KeyRound, CheckCircle2, UserPlus } from 'lucide-react';
 
 export const LoginModal: React.FC = () => {
-  const { isLoginModalOpen, setLoginModalOpen, userData } = useAuthStore();
+  const { isLoginModalOpen, setLoginModalOpen, userData, systemDomain } = useAuthStore();
   
   // 로그인 관련
   const [email, setEmail] = useState('');
@@ -73,8 +73,8 @@ export const LoginModal: React.FC = () => {
     
     try {
       const normalizedInput = rawInput.trim().toLowerCase();
-      // 유저의 요청에 따라 도메인 없는 입력을 철저히 @internal.com으로 강제 변환합니다.
-      const authEmail = normalizedInput.includes('@') ? normalizedInput : `${normalizedInput}@internal.com`;
+      // 유저의 요청에 따라 도메인 없는 입력을 철저히 설정된 시스템 도메인으로 강제 변환합니다.
+      const authEmail = normalizedInput.includes('@') ? normalizedInput : `${normalizedInput}@${systemDomain}`;
 
       // 1. 보안 규칙(isAuthenticated)을 뚫기 위해 가장 먼저 파이어베이스 Auth 계정부터 생성시켜서 '로그인 상태'를 만듭니다!
       let newUid = "";
@@ -154,8 +154,8 @@ export const LoginModal: React.FC = () => {
 
     const loginInput = email.trim().toLowerCase();
     
-    // Auth 인증용 이메일 결정 (모두 @internal.com 강제)
-    const authEmail = loginInput.includes('@') ? loginInput : `${loginInput}@internal.com`;
+    // Auth 인증용 이메일 결정 (설정된 시스템 도메인 강제)
+    const authEmail = loginInput.includes('@') ? loginInput : `${loginInput}@${systemDomain}`;
 
     try {
       await signInWithEmailAndPassword(auth, authEmail, password);
@@ -222,7 +222,7 @@ export const LoginModal: React.FC = () => {
   };
 
   const handleSeedMasterAdmin = async (isAuto = false) => {
-    const adminEmail = "bizpeer@internal.com";
+    const adminEmail = `bizpeer@${systemDomain}`;
     const adminPassword = "123456";
 
     try {
