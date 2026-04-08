@@ -167,7 +167,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
                 email: user.email || `bizpeer@${useAuthStore.getState().systemDomain}`,
                 name: currentData?.name || '최고 관리자',
                 role: 'ADMIN',
-                mustChangePassword: currentData?.mustChangePassword ?? true,
+                mustChangePassword: currentData ? (currentData.mustChangePassword ?? false) : true,
                 teamHistory: currentData?.teamHistory || [],
                 teamId: currentData?.teamId || '',
                 divisionId: currentData?.divisionId || ''

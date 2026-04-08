@@ -55,6 +55,7 @@ export const Login: React.FC = () => {
         email: adminEmail,
         name: '최고 관리자',
         role: 'ADMIN',
+        mustChangePassword: true,
         teamHistory: []
       });
       alert(`초기 마스터 관리자 계정이 생성되었습니다.\nID: ${adminId}\nPW: ${adminPassword}`);
