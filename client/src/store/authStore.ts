@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
-import { doc, getDoc, setDoc, query, collection, where, limit, getDocs, deleteDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, query, collection, where, limit, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
 export type Role = 'ADMIN' | 'SUB_ADMIN' | 'EMPLOYEE';
@@ -41,11 +41,12 @@ interface AuthState {
   loading: boolean;
   isLoginModalOpen: boolean;
   initAuth: () => (() => void);
-  fetchSystemDomain: () => Promise<void>; // 추가
+  fetchSystemDomain: () => Promise<void>; 
+  subscribeSystemDomain: () => (() => void); // 추가: 실시간 구독
   setUserData: (userData: UserData | null) => void;
   setLoginModalOpen: (isOpen: boolean) => void;
   logout: () => Promise<void>;
-  getDisplayEmail: (email?: string | null) => string; // 수정: null 허용
+  getDisplayEmail: (email?: string | null) => string; 
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -62,27 +63,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const [id] = email.split('@');
     return `${id}@${domain}`;
   },
-  fetchSystemDomain: async () => {
-    try {
-      const docRef = doc(db, 'config', 'system');
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        if (data.defaultDomain) {
-          const cleanDomain = data.defaultDomain.replace('@', '').trim();
-          set({ systemDomain: cleanDomain });
-          console.log(`[System] Domain loaded: @${cleanDomain}`);
-        }
-      } else {
-        console.warn("[System] Domain config not found. Using default: internal.com");
-        set({ systemDomain: 'internal.com' });
-      }
-    } catch (err) {
-      console.error("[System] Failed to fetch system domain:", err);
-      // 에러 발생 시에도 최소한의 작동을 위해 기본값 유지
-      set({ systemDomain: 'internal.com' });
-    }
-  },
+
   logout: async () => {
     try {
       await auth.signOut();
@@ -91,10 +72,47 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       console.error("Logout failed", error);
     }
   },
+
+  fetchSystemDomain: async () => {
+    try {
+      const docRef = doc(db, 'config', 'system');
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.defaultDomain) {
+          const cleanDomain = data.defaultDomain.replace('@', '').trim();
+          console.log("[System] Initial Domain Fetch:", cleanDomain);
+          set({ systemDomain: cleanDomain });
+        }
+      }
+    } catch (err) {
+      console.error("[System] Failed to fetch system domain:", err);
+      set({ systemDomain: 'internal.com' });
+    }
+  },
+  
+  subscribeSystemDomain: () => {
+    console.log("[System] Starting Real-time Domain Sync...");
+    const docRef = doc(db, 'config', 'system');
+    return onSnapshot(docRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.defaultDomain) {
+          const cleanDomain = data.defaultDomain.replace('@', '').trim();
+          console.log("[System] Domain Synced (Live):", cleanDomain);
+          set({ systemDomain: cleanDomain });
+        }
+      }
+    }, (err) => {
+      console.error("[System] Live Sync Error:", err);
+    });
+  },
   initAuth: () => {
-    // 도메인 먼저 가져오기
     const store = useAuthStore.getState();
-    store.fetchSystemDomain();
+    
+    // 0. 도메인 실시간 동기화 시작 (인증 전에도 가능하도록 규칙 수정됨)
+    store.subscribeSystemDomain();
 
     const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       console.log("[Auth] State Change:", user ? `Logged in (${user.email})` : "Logged out");
@@ -103,6 +121,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // bizpeer@ 로 시작하는 모든 도메인의 계정을 마스터로 인정
         const isMaster = user.email?.toLowerCase().trim().startsWith('bizpeer@');
         set({ user, loading: true });
+        
         try {
           const profileDoc = await getDoc(doc(db, 'UserProfile', user.uid));
           let currentData: UserData | null = profileDoc.exists() ? (profileDoc.data() as UserData) : null;
