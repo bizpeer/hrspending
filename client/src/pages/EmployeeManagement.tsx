@@ -8,7 +8,8 @@ import {
   collection, query, where, onSnapshot, doc, updateDoc, 
   getDocs, orderBy, writeBatch 
 } from 'firebase/firestore';
-import { auth, db } from '../firebase';
+import { auth, db, functions } from '../firebase';
+import { httpsCallable } from 'firebase/functions';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useAuthStore } from '../store/authStore';
 
@@ -194,22 +195,16 @@ export const EmployeeManagement: React.FC = () => {
   const handleInitializePassword = async (emp: Employee) => {
     if (!window.confirm(`${emp.name}님의 비밀번호를 '123456'으로 초기화하시겠습니까?\n(실제 로그인 비밀번호가 강제 변경됩니다.)`)) return;
     
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-    
     try {
-      // 1. 백엔드 API를 통해 실제 Auth 비밀번호 변경 시도
-      const response = await fetch(`${apiUrl}/api/reset-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ uid: emp.uid, password: '123456' })
-      });
+      // 1. Firebase Cloud Function을 통해 실제 Auth 비밀번호 변경 시도
+      const adminResetPassword = httpsCallable(functions, 'adminResetPassword');
+      const result: any = await adminResetPassword({ uid: emp.uid, password: '123456' });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || '관리자 서버 응답 오류');
+      if (!result.data.success) {
+        throw new Error(result.data.message || '비밀번호 초기화 중 오류가 발생했습니다.');
       }
 
-      // 2. Firestore 상태 업데이트
+      // 2. Firestore 상태 업데이트 (로그인 시 비밀번호 변경 유도)
       await updateDoc(doc(db, 'UserProfile', emp.uid), { 
         mustChangePassword: true 
       });
@@ -218,9 +213,14 @@ export const EmployeeManagement: React.FC = () => {
     } catch (e: any) {
       console.error('Password reset failed:', e);
       let errorMsg = e.message;
-      if (e.message.includes('Failed to fetch')) {
-        errorMsg = '백엔드 서버(Port 3001)가 실행되지 않았거나 연결할 수 없습니다.';
+      
+      // 사용자에게 친숙한 에러 메시지 처리
+      if (e.code === 'permission-denied') {
+        errorMsg = '관리자 권한이 없습니다.';
+      } else if (e.code === 'unauthenticated') {
+        errorMsg = '다시 로그인해 주세요.';
       }
+      
       alert(`[오류] 비밀번호 초기화 실패\n원인: ${errorMsg}`);
     }
   };

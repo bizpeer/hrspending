@@ -2,6 +2,7 @@ import { initializeApp } from "firebase/app"; // Firebase 인증 및 설정 전�
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
+import { getFunctions } from "firebase/functions";
 
 // Vite 환경 변수에서 구성을 읽어옵니다.
 // 배포 시 GitHub Secrets에 해당 값들이 반드시 등록되어 있어야 합니다.
@@ -37,3 +38,6 @@ export const db = getFirestore(app, dbId);
 
 // Initialize Cloud Storage and get a reference to the service
 export const storage = getStorage(app);
+
+// Initialize Cloud Functions
+export const functions = getFunctions(app);
